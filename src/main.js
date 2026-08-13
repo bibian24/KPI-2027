@@ -3,7 +3,7 @@ import { initRealtimeSync } from './config.js';
 import { LoginComponent } from './components/Login.js';
 import { TaskTableComponent } from './components/TaskTable.js';
 
-// Kích hoạt tính năng đồng bộ đám mây thời gian thực 24/7 cho 20 người dùng
+// Kích hoạt tính năng đồng bộ đám mây thời gian thực 24/7[cite: 3, 5]
 initRealtimeSync();
 
 const appContainer = document.getElementById('app');
@@ -53,9 +53,20 @@ function renderMainDashboard(userName) {
   `;
 
   const tableContainer = document.getElementById('tableContainer');
-  new TaskTableComponent(tableContainer);
+  if (tableContainer) {
+    new TaskTableComponent(tableContainer);
+  }
 }
 
-new LoginComponent(appContainer, (user) => {
-  renderMainDashboard(user);
-});
+// Khởi tạo hiển thị màn hình đăng nhập trước[cite: 3]
+if (appContainer) {
+  new LoginComponent(appContainer, (user) => {
+    renderMainDashboard(user);
+  });
+}
+```[cite: 3]
+
+#### Bước 3: Cập nhật lên GitHub
+1. Copy đoạn mã trên dán đè vào file `src/main.js` trực tiếp trên trang GitHub (hoặc cập nhật qua git).
+2. Nhớ ấn **Commit changes** để lưu lại.
+3. Đợi khoảng 1-2 phút để GitHub Pages tự động build lại trang web, sau đó bạn bấm **Ctrl + F5** tại trang web của mình để xóa bộ nhớ đệm (cache) và kiểm tra lại thành quả.
