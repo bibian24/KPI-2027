@@ -1,0 +1,1718 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hệ Thống Quản Lý Kỹ Thuật & KPI V2.9 - Sara Pro Edition</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- FontAwesome Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- Chart.js for Mixed Bar + Line KPI Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS Excel Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDK v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 800; }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: #f1f5f9; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+      /* Table styling with high contrast date boundaries */
+      table { border-collapse: separate !important; border-spacing: 0 !important; }
+      table td, table th {
+        border-right: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+      }
+      .date-boundary-row {
+        border-top: 3.5px solid #0f172a !important;
+      }
+      .url-link-badge {
+        color: #2563eb;
+        text-decoration: underline;
+        font-weight: 700;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased font-sans">
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Pause System Banner Modal -->
+    <div id="system-paused-overlay" class="hidden fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+      <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center space-y-4 border border-rose-200">
+        <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-3xl animate-pulse">
+          <i class="fa-solid fa-circle-pause"></i>
+        </div>
+        <h2 class="text-xl font-black text-slate-900">HỆ THỐNG ĐANG TẠM DỪNG</h2>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Ứng dụng đang được tạm khóa bởi <span class="font-extrabold text-rose-600">Huỳnh Nam Thắng (Super Admin)</span>. Vui lòng liên hệ để được cấp quyền khôi phục.
+        </p>
+        <button onclick="logout()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl text-xs transition">
+          Quay lại Đăng nhập
+        </button>
+      </div>
+    </div>
+
+    <!-- Login View -->
+    <div id="login-container" class="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 z-50 p-4 transition-all duration-300">
+      <div class="bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-md border border-white/20">
+        <div class="mb-6 flex justify-center flex-col items-center">
+          <div class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-500/30 mb-3 animate-bounce">
+            <i class="fa-solid fa-helmet-safety text-4xl"></i>
+          </div>
+          <h1 class="text-2xl font-black text-slate-900 tracking-tight">KỸ THUẬT & KPI V2.9</h1>
+          <p class="text-xs text-slate-500 mt-1">Hệ Thống Quản Lý Trực Tuyến Đám Mây (Sara Edition)</p>
+          <div id="login-cloud-status-badge" class="mt-3 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 bg-emerald-100 text-emerald-800">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>CLOUDFLARE / FIREBASE ONLINE</span>
+          </div>
+        </div>
+
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tài Khoản (User)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <i class="fa-solid fa-user-circle"></i>
+              </span>
+              <select id="login-username-select" required class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold text-slate-700"></select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Mật Khẩu (Password)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <i class="fa-solid fa-lock"></i>
+              </span>
+              <input type="password" id="login-password-input" required placeholder="Nhập mật khẩu..." class="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold text-slate-700" />
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition">
+              ĐĂNG NHẬP HỆ THỐNG
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div id="main-workspace" class="hidden flex flex-col min-h-screen">
+      <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm px-4 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div class="bg-blue-600 text-white p-2 rounded-xl flex items-center justify-center shadow-md">
+            <i class="fa-solid fa-screwdriver-wrench text-lg"></i>
+          </div>
+          <div>
+            <h2 class="font-extrabold text-lg text-slate-900 tracking-tight">SARA MANAGEMENT V2.9</h2>
+            <div class="text-[11px] text-slate-400 flex items-center gap-1">
+              <span id="header-user-fullname" class="font-bold text-slate-600">Nạp dữ liệu...</span>
+              <span>(<span id="header-user-role" class="text-blue-600 font-semibold">Vai trò</span>)</span>
+            </div>
+          </div>
+        </div>
+
+        <nav id="app-nav" class="flex flex-row bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
+          <button onclick="switchTab('weekly-plan')" id="tab-btn-weekly-plan" class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white transition text-xs font-bold whitespace-nowrap">
+            <i class="fa-solid fa-calendar-week text-blue-600"></i>
+            <span>WEEKLY PLAN</span>
+          </button>
+          <button onclick="switchTab('backlogs')" id="tab-btn-backlogs" class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white transition text-xs font-bold whitespace-nowrap">
+            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+            <span>CÔNG VIỆC TỒN ĐỌNG</span>
+          </button>
+          <button onclick="switchTab('emerging-tasks')" id="tab-btn-emerging-tasks" class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white transition text-xs font-bold whitespace-nowrap">
+            <i class="fa-solid fa-bolt text-purple-600"></i>
+            <span>CÔNG VIỆC PHÁT SINH</span>
+          </button>
+          <button onclick="switchTab('maintenance-forms')" id="tab-btn-maintenance-forms" class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white transition text-xs font-bold whitespace-nowrap">
+            <i class="fa-solid fa-file-invoice text-indigo-600"></i>
+            <span>FORM BẢO TRÌ</span>
+          </button>
+          <!-- Restricted Tab for Admins Only -->
+          <button onclick="switchTab('kpi-dashboard')" id="tab-btn-kpi-dashboard" class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white transition text-xs font-bold whitespace-nowrap">
+            <i class="fa-solid fa-chart-line text-emerald-600"></i>
+            <span>DASHBOARD KPI</span>
+          </button>
+          <button onclick="switchTab('admin-config')" id="tab-btn-admin-config" class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white transition text-xs font-bold whitespace-nowrap">
+            <i class="fa-solid fa-gears text-rose-600"></i>
+            <span>CẤU HÌNH ADMIN</span>
+          </button>
+        </nav>
+
+        <div class="flex items-center gap-3">
+          <button onclick="openAuditLogModal()" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-clock-rotate-left text-blue-600"></i> Nhật Ký
+          </button>
+          <button onclick="logout()" class="text-rose-500 hover:text-rose-700 bg-rose-50 p-2.5 rounded-xl transition" title="Đăng xuất">
+            <i class="fa-solid fa-power-off text-sm"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="flex-grow p-4 lg:p-6 max-w-full overflow-hidden">
+        <!-- SECTION 1: WEEKLY PLAN -->
+        <section id="view-weekly-plan" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-lg font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <i class="fa-solid fa-calendar-days text-blue-600"></i> BẢNG KẾ HOẠCH PHÂN CÔNG TUẦN (WEEKLY PLAN)
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">Đồng bộ đa người dùng thời gian thực. Tạo dòng mới hoàn toàn trống rỗng.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-50 p-1.5 rounded-xl border">
+                <span>Lọc tuần:</span>
+                <select id="week-filter" onchange="changeActiveWeekFilter()" class="bg-white border rounded px-2 py-1 font-bold text-slate-700 outline-none"></select>
+                <span>Lọc ngày:</span>
+                <input type="date" id="date-filter" onchange="renderWeeklyPlanTable()" class="bg-white border rounded px-2 py-1 text-xs font-bold outline-none" />
+              </div>
+              <button onclick="createNewWeekPlan()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-plus"></i> Tạo việc tuần kế tiếp
+              </button>
+              <button onclick="addNewWeeklyTaskRow()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Thêm dòng công việc mới
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+            <div class="overflow-auto w-full max-h-[72vh]">
+              <table class="text-left border-collapse w-full min-w-[1300px]" id="weekly-plan-table">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-500 text-[11px] font-black tracking-wider uppercase border-b border-slate-300">
+                    <th class="p-3 text-center w-[120px]">Ngày</th>
+                    <th class="p-3 text-center w-[90px]">Ca làm</th>
+                    <th class="p-3 text-center w-[110px]">Nhóm</th>
+                    <th class="p-3 text-center w-[130px]">Khu vực</th>
+                    <th class="p-3 text-center w-[280px]">Nội dung công việc</th>
+                    <th class="p-3 text-center w-[140px]">Minh chứng (Ảnh)</th>
+                    <th class="p-3 text-center w-[140px]">Form bảo trì</th>
+                    <th class="p-3 text-center w-[180px]">Người thực hiện</th>
+                    <th class="p-3 text-center w-[130px]">Tiến độ KPI</th>
+                    <th class="p-3 text-center w-[220px]">Ghi chú & Đính kèm Link</th>
+                    <th class="p-3 text-center w-[70px]">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="weekly-plan-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 2: BACKLOGS -->
+        <section id="view-backlogs" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> CÔNG VIỆC TỒN ĐỌNG
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">Danh sách việc chưa hoàn thành hoặc việc Admin đánh dấu "Làm lại". Tự động biến mất khi xong.</p>
+            </div>
+            <button onclick="addManualBacklogRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Thêm việc tồn đọng mới
+            </button>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-100 text-slate-500 font-extrabold uppercase border-b">
+                  <th class="p-3 text-center">Ngày</th>
+                  <th class="p-3 text-center">Nhóm</th>
+                  <th class="p-3">Khu vực</th>
+                  <th class="p-3">Nội dung công việc</th>
+                  <th class="p-3">Người thực hiện</th>
+                  <th class="p-3 text-center">Trạng thái</th>
+                  <th class="p-3 text-center">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="backlogs-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SECTION 3: CÔNG VIỆC PHÁT SINH -->
+        <section id="view-emerging-tasks" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-bolt text-purple-600"></i> CÔNG VIỆC PHÁT SINH TRONG NGÀY
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">Các công việc ngoài kế hoạch tuần do nhân viên hoặc quản lý ghi nhận khẩn cấp.</p>
+            </div>
+            <button onclick="addNewEmergingTaskRow()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Thêm việc phát sinh
+            </button>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-100 text-slate-500 font-extrabold uppercase border-b">
+                  <th class="p-3 text-center">Ngày</th>
+                  <th class="p-3 text-center">Ca làm</th>
+                  <th class="p-3">Khu vực</th>
+                  <th class="p-3">Nội dung công việc</th>
+                  <th class="p-3">Người thực hiện</th>
+                  <th class="p-3 text-center">Tiến độ KPI</th>
+                  <th class="p-3 text-center">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="emerging-tasks-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SECTION 4: FORM BẢO TRÌ -->
+        <section id="view-maintenance-forms" class="hidden space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Form Template Builder -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <h2 class="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-square-plus text-indigo-600"></i> Tạo Form Bảo Trì Mới
+              </h2>
+              <div class="space-y-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-500 mb-1">Tên Form / Thiết bị</label>
+                  <input type="text" id="form-template-name" placeholder="VD: Bảo Trì Định Kỳ FCU Phòng Khách" class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold focus:bg-white outline-none" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-500 mb-1">Hệ Thống / Folder Lưu Trữ</label>
+                  <select id="form-template-folder" class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold">
+                    <option value="Hệ Điện">Hệ Điện</option>
+                    <option value="Hệ Lạnh (HVAC)">Hệ Lạnh (HVAC)</option>
+                    <option value="Hệ PCCC">Hệ PCCC</option>
+                    <option value="Hệ Nước">Hệ Nước</option>
+                    <option value="Mộc / Carpenter">Mộc / Carpenter</option>
+                  </select>
+                </div>
+                
+                <div class="border-t pt-3 space-y-2">
+                  <label class="block font-black text-indigo-600 uppercase text-[10px]">Danh sách Hạng Mục Kiểm Tra</label>
+                  <div id="form-questions-builder" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                  <button onclick="addQuestionToBuilder()" class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs rounded-xl border border-dashed border-indigo-300">
+                    + Thêm Hạng Mục Kiểm Tra
+                  </button>
+                </div>
+
+                <button onclick="saveFormTemplate()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md text-xs">
+                  LƯU MẪU FORM
+                </button>
+              </div>
+            </div>
+
+            <!-- Saved Forms & Submissions Folder View -->
+            <div class="lg:col-span-2 space-y-4">
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex justify-between items-center border-b pb-2">
+                  <h2 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-folder-tree text-amber-500"></i> Các Form Bảo Trì Đã Nộp Theo Folder
+                  </h2>
+                  <select id="filter-submitted-folder" onchange="renderSubmittedFormsList()" class="p-2 border rounded-xl text-xs font-bold bg-slate-50">
+                    <option value="ALL">-- Tất cả Folder --</option>
+                    <option value="Hệ Điện">Hệ Điện</option>
+                    <option value="Hệ Lạnh (HVAC)">Hệ Lạnh (HVAC)</option>
+                    <option value="Hệ PCCC">Hệ PCCC</option>
+                    <option value="Hệ Nước">Hệ Nước</option>
+                    <option value="Mộc / Carpenter">Mộc / Carpenter</option>
+                  </select>
+                </div>
+
+                <div id="submitted-forms-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 5: KPI DASHBOARD -->
+        <section id="view-kpi-dashboard" class="hidden space-y-6">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-lg font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <i class="fa-solid fa-chart-line text-emerald-600"></i> BẢNG ĐÁNH GIÁ & ĐỒ THỊ KPI KỸ THUẬT
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">Công thức: 70% Khối lượng hoàn thành + 30% Điểm Thái độ (Thang 1-5). Tự chốt tháng.</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="archiveCurrentMonthKPI()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md">
+                <i class="fa-solid fa-box-archive"></i> Chốt File KPI Tháng
+              </button>
+            </div>
+          </div>
+
+          <!-- Top Performers Gold Banner -->
+          <div class="bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 p-6 rounded-3xl text-white shadow-xl space-y-4">
+            <h2 class="text-base font-black tracking-wider text-center flex items-center justify-center gap-2 uppercase">
+              <i class="fa-solid fa-trophy text-2xl text-yellow-200 animate-bounce"></i>
+              DANH HIỆU XUẤT SẮC NHẤT THÁNG
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center space-y-1">
+                <div class="text-[10px] font-black uppercase text-yellow-200 tracking-widest">DUTY XUẤT SẮC THÁNG</div>
+                <div id="top-duty-name" class="font-extrabold text-lg text-white">---</div>
+                <div id="top-duty-score" class="text-xs text-white/90">0.0%</div>
+              </div>
+              <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center space-y-1">
+                <div class="text-[10px] font-black uppercase text-yellow-200 tracking-widest">TECHNICIAN XUẤT SẮC THÁNG</div>
+                <div id="top-tech-name" class="font-extrabold text-lg text-white">---</div>
+                <div id="top-tech-score" class="text-xs text-white/90">0.0%</div>
+              </div>
+              <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center space-y-1">
+                <div class="text-[10px] font-black uppercase text-yellow-200 tracking-widest">CARPENTER XUẤT SẮC THÁNG</div>
+                <div id="top-carp-name" class="font-extrabold text-base text-white">---</div>
+                <div id="top-carp-score" class="text-xs text-white/90">0.0%</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attitude Evaluation Grading Board -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b pb-2">
+              <i class="fa-solid fa-star-half-stroke text-amber-500"></i> DASHBOARD "THÁI ĐỘ NHÂN VIÊN" (Thang điểm 1 - 5)
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-500 font-extrabold uppercase border-b">
+                    <th class="p-2.5">Họ & Tên</th>
+                    <th class="p-2.5 text-center">Thái độ với Giám sát</th>
+                    <th class="p-2.5 text-center">Chuyên cần</th>
+                    <th class="p-2.5 text-center">Sáng kiến</th>
+                    <th class="p-2.5 text-center">Phản hồi tốt từ Khách</th>
+                    <th class="p-2.5 text-center font-black text-purple-700">ĐIỂM TRUNG BÌNH THÁI ĐỘ</th>
+                  </tr>
+                </thead>
+                <tbody id="attitude-grading-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- KPI Mixed Charts Section (Duty, Tech, Carpenter) -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-[360px]">
+              <h4 class="font-black text-xs text-slate-600 uppercase border-b pb-2 flex justify-between">
+                <span>KPI DUTY MANAGER</span>
+                <span class="text-rose-600">Bar + Line Chart</span>
+              </h4>
+              <div class="relative flex-grow h-64 mt-2"><canvas id="kpiDutyChart"></canvas></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-[360px]">
+              <h4 class="font-black text-xs text-slate-600 uppercase border-b pb-2 flex justify-between">
+                <span>KPI TECHNICIAN</span>
+                <span class="text-rose-600">Bar + Line Chart</span>
+              </h4>
+              <div class="relative flex-grow h-64 mt-2"><canvas id="kpiTechChart"></canvas></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-[360px]">
+              <h4 class="font-black text-xs text-slate-600 uppercase border-b pb-2 flex justify-between">
+                <span>KPI CARPENTER</span>
+                <span class="text-rose-600">Bar + Line Chart</span>
+              </h4>
+              <div class="relative flex-grow h-64 mt-2"><canvas id="kpiCarpenterChart"></canvas></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 6: ADMIN CONFIG -->
+        <section id="view-admin-config" class="hidden space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- System Controls -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <h2 class="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-shield-halved text-rose-600"></i> Bảng Điều Khiển Super Admin
+              </h2>
+              <p class="text-xs text-slate-500">Chỉ duy nhất tài khoản <span class="font-bold text-blue-600">Huỳnh Nam Thắng (Super Admin)</span> mới có quyền tạm dừng ứng dụng hoặc giải phóng bộ nhớ.</p>
+
+              <div class="pt-2 border-t space-y-3">
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border">
+                  <div>
+                    <span class="block font-bold text-xs text-slate-800">Trạng Thái Ứng Dụng</span>
+                    <span id="system-pause-status-label" class="text-[10px] font-bold text-emerald-600">Đang hoạt động bình thường</span>
+                  </div>
+                  <button id="toggle-pause-btn" onclick="toggleSystemPause()" class="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow transition">
+                    Tạm Dừng Ứng Dụng
+                  </button>
+                </div>
+
+                <button onclick="resetApplicationStorage()" class="w-full bg-slate-100 hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs py-2.5 rounded-xl transition">
+                  Giải Phóng Bộ Nhớ / Khôi Phục Gốc (Chỉ Huỳnh Nam Thắng)
+                </button>
+              </div>
+            </div>
+
+            <!-- Member Management -->
+            <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div class="flex justify-between items-center border-b pb-2">
+                <h2 class="font-extrabold text-slate-900 text-sm">Danh Sách Tài Khoản Nhân Viên</h2>
+                <button onclick="openAddMemberModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow">
+                  + Thêm Nhân Viên
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr class="bg-slate-100 text-slate-500 font-extrabold uppercase border-b">
+                      <th class="p-2.5">Họ & Tên</th>
+                      <th class="p-2.5">User</th>
+                      <th class="p-2.5">Chức Danh / Vai Trò</th>
+                      <th class="p-2.5">Mật Khẩu</th>
+                      <th class="p-2.5 text-center">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-members-list"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modals (Fill Form Modal, Audit Log Modal, Add Member Modal) -->
+    <!-- Form Filler Modal -->
+    <div id="fill-form-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto border shadow-2xl">
+        <div class="flex justify-between items-center border-b pb-3">
+          <h3 id="fill-form-title" class="font-extrabold text-slate-900 text-base">PHIẾU BẢO TRÌ NỘI BỘ</h3>
+          <button onclick="closeFillFormModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        </div>
+        <div id="fill-form-body" class="space-y-4 text-xs"></div>
+        <div class="pt-3 border-t flex justify-end gap-2">
+          <button onclick="closeFillFormModal()" class="px-4 py-2 bg-slate-100 font-bold rounded-xl text-slate-600">Hủy</button>
+          <button onclick="submitFilledForm()" class="px-5 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow">NỘP FORM BẢO TRÌ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit Log Modal -->
+    <div id="audit-log-modal" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h3 class="font-extrabold text-slate-900 text-sm">LỊCH SỬ CHỈNH SỬA (AUDIT LOGS)</h3>
+          <button onclick="closeAuditLogModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+        </div>
+        <div id="audit-log-list" class="space-y-2 max-h-80 overflow-y-auto text-xs pr-1"></div>
+      </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div id="add-member-modal" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <h3 class="font-extrabold text-slate-900 text-sm border-b pb-2">Thêm Nhân Viên / Admin Đồng Quản Trị</h3>
+        <form id="add-member-form" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-bold text-slate-500 mb-1">Họ & Tên</label>
+            <input type="text" id="new-mem-fullname" required class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-500 mb-1">Tên Đăng Nhập (User)</label>
+            <input type="text" id="new-mem-user" required class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-500 mb-1">Mật Khẩu</label>
+            <input type="text" id="new-mem-pass" required value="123" class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-500 mb-1">Vai Trò / Chức Danh</label>
+            <select id="new-mem-title" class="w-full p-2.5 border rounded-xl bg-slate-50 font-bold">
+              <option value="Duty Manager">Duty Manager</option>
+              <option value="Senior Technician">Senior Technician</option>
+              <option value="Technician">Technician</option>
+              <option value="Carpenter">Carpenter</option>
+              <option value="Admin">Admin Đồng Quản Trị</option>
+            </select>
+          </div>
+          <div class="pt-2 flex justify-end gap-2">
+            <button type="button" onclick="closeAddMemberModal()" class="px-4 py-2 bg-slate-100 font-bold rounded-xl text-slate-600">Hủy</button>
+            <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow">Lưu Nhân Viên</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Firebase Configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyD5idllCVzyDn9eOPlNJQDnuWjErjRkNjg",
+        authDomain: "engineer-kpi.firebaseapp.com",
+        projectId: "engineer-kpi",
+        storageBucket: "engineer-kpi.firebasestorage.app",
+        messagingSenderId: "935375022936",
+        appId: "1:935375022936:web:7e4d8fb4b1e9c326d4532d"
+      };
+
+      const defaultMembers = [
+        { id: "mem-super", fullname: "Huỳnh Nam Thắng", user: "thanghn", pass: "thang2026", role: "Super Admin", title: "Trưởng Phòng / Chủ Sở Hữu", attitude: { supervisor: 5, attendance: 5, initiative: 5, feedback: 5 } },
+        { id: "mem-admin", fullname: "Admin Hệ Thống", user: "admin", pass: "admin123", role: "Admin", title: "Quản Trị Viên", attitude: { supervisor: 5, attendance: 5, initiative: 5, feedback: 5 } },
+        { id: "mem-01", fullname: "Đào Tấn Phát", user: "phatdt", pass: "123", role: "Nhân viên", title: "Duty Manager", attitude: { supervisor: 4.8, attendance: 4.5, initiative: 4.8, feedback: 4.5 } },
+        { id: "mem-02", fullname: "Võ Tấn Đạt", user: "datvt", pass: "123", role: "Nhân viên", title: "Duty Manager", attitude: { supervisor: 4.5, attendance: 4.8, initiative: 4.2, feedback: 4.6 } },
+        { id: "mem-03", fullname: "Nguyễn Ngọc Thắng", user: "thangnn", pass: "123", role: "Nhân viên", title: "Senior Technician", attitude: { supervisor: 4.9, attendance: 5.0, initiative: 4.7, feedback: 4.8 } },
+        { id: "mem-04", fullname: "Trần Tuấn Kiệt", user: "kiettt", pass: "123", role: "Nhân viên", title: "Technician", attitude: { supervisor: 4.6, attendance: 4.7, initiative: 4.5, feedback: 4.2 } },
+        { id: "mem-05", fullname: "Đặng Xuân Thịnh", user: "thinhdx", pass: "123", role: "Nhân viên", title: "Carpenter", attitude: { supervisor: 4.5, attendance: 4.5, initiative: 4.0, feedback: 4.5 } },
+        { id: "mem-06", fullname: "Phạm Văn Tôi", user: "toipv", pass: "123", role: "Nhân viên", title: "Carpenter", attitude: { supervisor: 4.2, attendance: 4.0, initiative: 4.2, feedback: 4.0 } }
+      ];
+
+      const defaultTemplates = [
+        {
+          id: "tmpl-fcu",
+          name: "Bảo Trì Định Kỳ FCU Phòng Khách",
+          folder: "Hệ Lạnh (HVAC)",
+          questions: [
+            { text: "Kiểm tra vệ sinh phin lọc bụi FCU", type: "Option" },
+            { text: "Đo nhiệt độ gió cấp (°C)", type: "Text" },
+            { text: "Ngày bảo trì thực hiện gần nhất", type: "Date" }
+          ]
+        }
+      ];
+
+      let state = {
+        currentUser: null,
+        members: defaultMembers,
+        tasks: [],
+        backlogs: [],
+        emergingTasks: [],
+        templates: defaultTemplates,
+        submittedForms: [],
+        auditLogs: [],
+        weeks: ["Tuần 01 (01/06 - 07/06/2026)", "Tuần 02 (08/06 - 14/06/2026)"],
+        settings: { systemPaused: false }
+      };
+
+      let db = null;
+      let isCloudActive = false;
+      let activeWeekFilterVal = "Tuần 01 (01/06 - 07/06/2026)";
+      let activeFillingTemplateId = null;
+      let activeFillingTaskId = null;
+      let taskDebounceTimers = {};
+
+      // Chart Instances
+      let chartDuty = null;
+      let chartTech = null;
+      let chartCarp = null;
+
+      async function initFirebase() {
+        try {
+          if (typeof firebase !== "undefined") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            isCloudActive = true;
+            setupRealtimeSync();
+          } else {
+            loadLocalFallback();
+          }
+        } catch (e) {
+          console.error("Firebase connection error: ", e);
+          loadLocalFallback();
+        }
+      }
+
+      function setupRealtimeSync() {
+        // Realtime Sync System Pause State
+        db.collection("system_kpi_v29_config").doc("main").onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            if (data.settings) state.settings = data.settings;
+            checkSystemPauseState();
+          }
+        });
+
+        // Realtime Sync Tasks
+        db.collection("system_kpi_v29_tasks").onSnapshot((snapshot) => {
+          const list = [];
+          snapshot.forEach((doc) => list.push(doc.data()));
+          state.tasks = list;
+          saveLocalBackup();
+
+          const activeEl = document.activeElement;
+          const isUserTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA");
+          if (!isUserTyping) {
+            renderWeeklyPlanTable();
+            renderBacklogsTable();
+            renderKpiDashboard();
+          }
+        });
+
+        // Realtime Sync Emerging Tasks
+        db.collection("system_kpi_v29_emerging").onSnapshot((snapshot) => {
+          const list = [];
+          snapshot.forEach((doc) => list.push(doc.data()));
+          state.emergingTasks = list;
+          renderEmergingTasksTable();
+        });
+
+        // Realtime Sync Submitted Forms
+        db.collection("system_kpi_v29_forms").onSnapshot((snapshot) => {
+          const list = [];
+          snapshot.forEach((doc) => list.push(doc.data()));
+          state.submittedForms = list;
+          renderSubmittedFormsList();
+        });
+
+        // Realtime Sync Members
+        db.collection("system_kpi_v29_members").onSnapshot((snapshot) => {
+          const list = [];
+          snapshot.forEach((doc) => list.push(doc.data()));
+          if (list.length > 0) state.members = list;
+          refreshUI();
+        });
+
+        loadKeepLoggedIn();
+      }
+
+      function saveLocalBackup() {
+        localStorage.setItem("kpi_v29_state", JSON.stringify({ tasks: state.tasks, backlogs: state.backlogs, settings: state.settings }));
+      }
+
+      function loadLocalFallback() {
+        const local = localStorage.getItem("kpi_v29_state");
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed.tasks) state.tasks = parsed.tasks;
+          if (parsed.backlogs) state.backlogs = parsed.backlogs;
+          if (parsed.settings) state.settings = parsed.settings;
+        }
+        refreshUI();
+        loadKeepLoggedIn();
+      }
+
+      async function saveTaskToCloud(task) {
+        if (!task || !task.id) return;
+        saveLocalBackup();
+        if (isCloudActive && db) {
+          try {
+            await db.collection("system_kpi_v29_tasks").doc(String(task.id)).set(task);
+          } catch (e) {
+            console.error("Cloud Save Error: ", e);
+          }
+        }
+      }
+
+      function addAuditLog(action) {
+        const log = {
+          time: new Date().toLocaleTimeString("vi-VN") + " - " + new Date().toLocaleDateString("vi-VN"),
+          user: state.currentUser ? state.currentUser.fullname : "Hệ thống",
+          action: action
+        };
+        state.auditLogs.unshift(log);
+      }
+
+      function renderWeeklyPlanTable() {
+        const body = document.getElementById("weekly-plan-table-body");
+        if (!body) return;
+
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA") && body.contains(activeEl)) return;
+
+        body.innerHTML = "";
+        const dateFilterVal = document.getElementById("date-filter") ? document.getElementById("date-filter").value : "";
+        let filtered = state.tasks.filter((t) => t.weekNum === activeWeekFilterVal && !t.hidden);
+
+        if (dateFilterVal) {
+          filtered = filtered.filter((t) => t.date === dateFilterVal);
+        }
+
+        if (filtered.length === 0) {
+          body.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-slate-400 font-semibold text-xs">Chưa có công việc nào. Bấm "Thêm dòng công việc mới" để tạo.</td></tr>`;
+          return;
+        }
+
+        let previousDate = null;
+
+        filtered.forEach((task) => {
+          const tr = document.createElement("tr");
+          // Fix A3: Distinct thick date boundary lines
+          const isNewDate = previousDate !== null && previousDate !== task.date;
+          previousDate = task.date;
+
+          tr.className = `hover:bg-slate-50 transition text-xs border-b border-slate-200 ${isNewDate ? 'date-boundary-row' : ''}`;
+
+          // Photos
+          let photosHTML = "";
+          if (task.photos && task.photos.length > 0) {
+            task.photos.forEach((ph, pIdx) => {
+              photosHTML += `
+                <div class="relative w-8 h-8 rounded border overflow-hidden bg-slate-100 shadow-sm inline-block">
+                  <img src="${ph}" class="w-full h-full object-cover cursor-pointer" onclick="openPhotoPreview('${ph}')" />
+                  <button onclick="deleteTaskPhoto('${task.id}', ${pIdx})" class="absolute top-0 right-0 bg-rose-600 text-white text-[8px] px-1 font-bold">&times;</button>
+                </div>
+              `;
+            });
+          }
+
+          // Options select for Assignees (Multi / Single selector)
+          let assigneeOptionsHTML = `<select onchange="updateTaskAssignee('${task.id}', this.value)" class="w-full p-1 border rounded font-semibold text-xs bg-slate-50">`;
+          state.members.forEach((m) => {
+            const isSel = task.assignees && task.assignees.includes(m.fullname) ? "selected" : "";
+            assigneeOptionsHTML += `<option value="${m.fullname}" ${isSel}>${m.fullname} (${m.title})</option>`;
+          });
+          assigneeOptionsHTML += `</select>`;
+
+          // Form Selector / Direct Filler Link (Fix B4)
+          let formLinkHTML = `<select onchange="linkTaskForm('${task.id}', this.value)" class="w-full p-1 border rounded text-[11px] bg-slate-50">`;
+          formLinkHTML += `<option value="">-- Chọn Form --</option>`;
+          state.templates.forEach((tmpl) => {
+            const isSel = task.linkedFormId === tmpl.id ? "selected" : "";
+            formLinkHTML += `<option value="${tmpl.id}" ${isSel}>${tmpl.name}</option>`;
+          });
+          formLinkHTML += `</select>`;
+
+          if (task.linkedFormId) {
+            formLinkHTML += `
+              <button onclick="openFillFormModal('${task.linkedFormId}', '${task.id}')" class="mt-1 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-[10px] py-1 px-2 rounded-lg border border-indigo-200 flex items-center justify-center gap-1">
+                <i class="fa-solid fa-file-signature"></i> Điền Form Ngay
+              </button>
+            `;
+          }
+
+          // Fix A4: URL link parser in note field
+          const noteFormatted = parseUrlsInText(task.note || "");
+
+          tr.innerHTML = `
+            <td class="p-2 font-bold text-center border-r bg-slate-50/50">${task.date || ""}</td>
+            <td class="p-2 text-center border-r">
+              <select onchange="updateTaskFieldLocally('${task.id}', 'shift', this.value)" class="p-1 border rounded font-bold text-[11px] bg-white">
+                <option value="Ca A" ${task.shift === "Ca A" ? "selected" : ""}>Ca A</option>
+                <option value="Ca B" ${task.shift === "Ca B" ? "selected" : ""}>Ca B</option>
+                <option value="Ca C" ${task.shift === "Ca C" ? "selected" : ""}>Ca C</option>
+                <option value="Ca N" ${task.shift === "Ca N" ? "selected" : ""}>Ca N</option>
+              </select>
+            </td>
+            <td class="p-2 border-r font-bold text-blue-700">
+              <select onchange="updateTaskFieldLocally('${task.id}', 'group', this.value)" class="p-1 border rounded font-bold text-[11px] bg-white">
+                <option value="Vận Hành" ${task.group === "Vận Hành" ? "selected" : ""}>Vận Hành</option>
+                <option value="Bảo Trì" ${task.group === "Bảo Trì" ? "selected" : ""}>Bảo Trì</option>
+                <option value="Carpenter" ${task.group === "Carpenter" ? "selected" : ""}>Carpenter</option>
+              </select>
+            </td>
+            <td class="p-2 border-r">
+              <textarea data-task-id="${task.id}" data-field="area" oninput="updateTaskFieldLocally('${task.id}', 'area', this.value)" onblur="saveTaskToCloudById('${task.id}')" class="w-full bg-transparent border-b outline-none font-bold focus:border-blue-500" rows="1" placeholder="">${task.area || ""}</textarea>
+            </td>
+            <td class="p-2 border-r">
+              <textarea data-task-id="${task.id}" data-field="content" oninput="updateTaskFieldLocally('${task.id}', 'content', this.value)" onblur="saveTaskToCloudById('${task.id}')" class="w-full bg-transparent border-b outline-none font-bold focus:border-blue-500" rows="2" placeholder="">${task.content || ""}</textarea>
+            </td>
+            <td class="p-2 border-r text-center">
+              <div class="flex flex-wrap gap-1 justify-center items-center">
+                ${photosHTML}
+                <label class="bg-blue-50 hover:bg-blue-100 text-blue-600 p-1.5 rounded-lg border border-blue-200 cursor-pointer inline-flex items-center" title="Tải ảnh">
+                  <i class="fa-solid fa-camera text-xs"></i>
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadTaskPhoto('${task.id}', this)" />
+                </label>
+              </div>
+            </td>
+            <td class="p-2 border-r text-center">${formLinkHTML}</td>
+            <td class="p-2 border-r">${assigneeOptionsHTML}</td>
+            <td class="p-2 text-center border-r">
+              <select onchange="updateTaskProgress('${task.id}', this.value)" class="p-1 border rounded font-black text-[10px] ${getProgressBadgeColor(task.progress)}">
+                <option value="Đang thực hiện" ${task.progress === "Đang thực hiện" ? "selected" : ""}>Đang thực hiện (50%)</option>
+                <option value="Hoàn thành" ${task.progress === "Hoàn thành" ? "selected" : ""}>Hoàn thành (100%)</option>
+                <option value="Làm lại" ${task.progress === "Làm lại" ? "selected" : ""}>Làm lại (20%)</option>
+                <option value="Bàn giao" ${task.progress === "Bàn giao" ? "selected" : ""}>Bàn giao (0%)</option>
+              </select>
+            </td>
+            <td class="p-2 border-r">
+              <textarea data-task-id="${task.id}" data-field="note" oninput="updateTaskFieldLocally('${task.id}', 'note', this.value)" onblur="saveTaskToCloudById('${task.id}')" class="w-full bg-transparent border-b outline-none text-[11px] focus:border-blue-500" rows="1" placeholder="">${task.note || ""}</textarea>
+              <div class="mt-1">${noteFormatted}</div>
+            </td>
+            <td class="p-2 text-center">
+              <button onclick="deleteTaskRow('${task.id}')" class="text-rose-500 hover:text-rose-700 font-bold p-1"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+
+      // Fix A5: New row created completely empty
+      function addNewWeeklyTaskRow() {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const newT = {
+          id: "task-" + Date.now(),
+          weekNum: activeWeekFilterVal,
+          date: todayStr,
+          shift: "Ca A",
+          group: "Bảo Trì",
+          area: "",
+          content: "",
+          photos: [],
+          assignees: [state.currentUser ? state.currentUser.fullname : "Đào Tấn Phát"],
+          progress: "Đang thực hiện",
+          linkedFormId: "",
+          note: ""
+        };
+        state.tasks.push(newT);
+        saveTaskToCloud(newT);
+        addAuditLog(`Thêm mới dòng công việc rỗng (${newT.date})`);
+        renderWeeklyPlanTable();
+        renderKpiDashboard();
+        showCustomToast("Đã thêm dòng công việc mới!", "success");
+      }
+
+      function updateTaskFieldLocally(id, field, val) {
+        const task = state.tasks.find((x) => String(x.id) === String(id));
+        if (task) {
+          task[field] = val;
+          saveLocalBackup();
+          clearTimeout(taskDebounceTimers[id + "_" + field]);
+          taskDebounceTimers[id + "_" + field] = setTimeout(() => {
+            saveTaskToCloud(task);
+            if (field === "content" || field === "area") renderBacklogsTable();
+          }, 500);
+        }
+      }
+
+      function saveTaskToCloudById(id) {
+        const task = state.tasks.find((x) => String(x.id) === String(id));
+        if (task) saveTaskToCloud(task);
+      }
+
+      function updateTaskAssignee(id, val) {
+        const task = state.tasks.find((x) => String(x.id) === String(id));
+        if (task) {
+          task.assignees = [val];
+          saveTaskToCloud(task);
+          renderKpiDashboard();
+        }
+      }
+
+      function linkTaskForm(id, formId) {
+        const task = state.tasks.find((x) => String(x.id) === String(id));
+        if (task) {
+          task.linkedFormId = formId;
+          saveTaskToCloud(task);
+          renderWeeklyPlanTable();
+        }
+      }
+
+      function updateTaskProgress(id, progress) {
+        const task = state.tasks.find((x) => String(x.id) === String(id));
+        if (!task) return;
+
+        task.progress = progress;
+        addAuditLog(`Cập nhật tiến độ "${task.content || 'Công việc'}" sang ${progress}`);
+
+        // Fix A6: Automatic Backlog Sync
+        if (progress === "Làm lại" || progress === "Bàn giao") {
+          const existed = state.backlogs.find((b) => b.taskId === task.id);
+          if (!existed) {
+            state.backlogs.push({
+              id: "backlog-" + Date.now(),
+              taskId: task.id,
+              date: task.date,
+              group: task.group,
+              area: task.area,
+              content: task.content,
+              assignees: task.assignees,
+              status: progress
+            });
+          }
+        } else if (progress === "Hoàn thành") {
+          // Remove from backlog automatically if completed
+          state.backlogs = state.backlogs.filter((b) => b.taskId !== task.id && !(b.area === task.area && b.content === task.content));
+        }
+
+        saveTaskToCloud(task);
+        renderWeeklyPlanTable();
+        renderBacklogsTable();
+        renderKpiDashboard();
+      }
+
+      function deleteTaskRow(id) {
+        if (confirm("Xóa dòng công việc này?")) {
+          state.tasks = state.tasks.filter((x) => String(x.id) !== String(id));
+          saveLocalBackup();
+          if (isCloudActive && db) db.collection("system_kpi_v29_tasks").doc(String(id)).delete();
+          addAuditLog(`Xóa dòng công việc (ID: ${id})`);
+          renderWeeklyPlanTable();
+          renderKpiDashboard();
+          showCustomToast("Đã xóa công việc!", "info");
+        }
+      }
+
+      function renderBacklogsTable() {
+        const body = document.getElementById("backlogs-table-body");
+        if (!body) return;
+        body.innerHTML = "";
+
+        if (state.backlogs.length === 0) {
+          body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 font-semibold text-xs">Không có công việc tồn đọng.</td></tr>`;
+          return;
+        }
+
+        state.backlogs.forEach((b) => {
+          const tr = document.createElement("tr");
+          tr.className = "border-b hover:bg-slate-50 transition text-xs";
+          tr.innerHTML = `
+            <td class="p-3 text-center font-bold">${b.date || ''}</td>
+            <td class="p-3 text-center font-bold text-blue-600">${b.group || 'Bảo Trì'}</td>
+            <td class="p-3 font-bold">${b.area || ''}</td>
+            <td class="p-3 font-bold text-slate-800">${b.content || ''}</td>
+            <td class="p-3 font-semibold">${b.assignees ? b.assignees.join(', ') : ''}</td>
+            <td class="p-3 text-center"><span class="bg-amber-100 text-amber-800 font-black px-2 py-1 rounded-md text-[10px]">${b.status || 'Tồn Đọng'}</span></td>
+            <td class="p-3 text-center">
+              <button onclick="resolveBacklog('${b.id}')" class="text-emerald-600 hover:text-emerald-800 font-bold p-1" title="Đánh dấu đã hoàn thành"><i class="fa-solid fa-circle-check text-base"></i></button>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+
+      function addManualBacklogRow() {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const bg = {
+          id: "backlog-" + Date.now(),
+          taskId: "manual-" + Date.now(),
+          date: todayStr,
+          group: "Bảo Trì",
+          area: "",
+          content: "Công việc tồn đọng mới",
+          assignees: [state.currentUser ? state.currentUser.fullname : "Đào Tấn Phát"],
+          status: "Bàn giao"
+        };
+        state.backlogs.push(bg);
+        renderBacklogsTable();
+        showCustomToast("Đã thêm việc tồn đọng mới!", "success");
+      }
+
+      function resolveBacklog(id) {
+        const bg = state.backlogs.find((x) => x.id === id);
+        if (bg) {
+          // If linked to task, update task progress
+          const linkedTask = state.tasks.find((t) => t.id === bg.taskId);
+          if (linkedTask) {
+            linkedTask.progress = "Hoàn thành";
+            saveTaskToCloud(linkedTask);
+          }
+          state.backlogs = state.backlogs.filter((x) => x.id !== id);
+          renderWeeklyPlanTable();
+          renderBacklogsTable();
+          renderKpiDashboard();
+          showCustomToast("Đã xử lý xong việc tồn đọng!", "success");
+        }
+      }
+
+      function renderEmergingTasksTable() {
+        const body = document.getElementById("emerging-tasks-table-body");
+        if (!body) return;
+        body.innerHTML = "";
+
+        if (state.emergingTasks.length === 0) {
+          body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 font-semibold text-xs">Chưa có công việc phát sinh trong ngày.</td></tr>`;
+          return;
+        }
+
+        state.emergingTasks.forEach((t) => {
+          const tr = document.createElement("tr");
+          tr.className = "border-b hover:bg-slate-50 transition text-xs";
+          tr.innerHTML = `
+            <td class="p-3 text-center font-bold">${t.date || ''}</td>
+            <td class="p-3 text-center font-bold">${t.shift || 'Ca A'}</td>
+            <td class="p-3 font-bold">${t.area || ''}</td>
+            <td class="p-3 font-bold text-slate-800">${t.content || ''}</td>
+            <td class="p-3 font-semibold">${t.assignees ? t.assignees.join(', ') : ''}</td>
+            <td class="p-3 text-center font-bold text-emerald-600">${t.progress || 'Hoàn thành'}</td>
+            <td class="p-3 text-center">
+              <button onclick="deleteEmergingTask('${t.id}')" class="text-rose-500 font-bold"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+
+      function addNewEmergingTaskRow() {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const item = {
+          id: "emerging-" + Date.now(),
+          date: todayStr,
+          shift: "Ca A",
+          area: "Phòng kỹ thuật",
+          content: "Sửa chữa sự cố phát sinh khẩn cấp",
+          assignees: [state.currentUser ? state.currentUser.fullname : "Đào Tấn Phát"],
+          progress: "Hoàn thành"
+        };
+        state.emergingTasks.push(item);
+        if (isCloudActive && db) db.collection("system_kpi_v29_emerging").doc(item.id).set(item);
+        renderEmergingTasksTable();
+        renderKpiDashboard();
+        showCustomToast("Đã chèn việc phát sinh khẩn cấp!", "success");
+      }
+
+      function deleteEmergingTask(id) {
+        state.emergingTasks = state.emergingTasks.filter((x) => x.id !== id);
+        if (isCloudActive && db) db.collection("system_kpi_v29_emerging").doc(id).delete();
+        renderEmergingTasksTable();
+        renderKpiDashboard();
+      }
+
+      function addQuestionToBuilder() {
+        const container = document.getElementById("form-questions-builder");
+        const div = document.createElement("div");
+        div.className = "flex gap-2 items-center bg-slate-50 p-2 rounded-xl border";
+        div.innerHTML = `
+          <input type="text" placeholder="Tên câu hỏi / Bước kiểm tra" class="flex-grow p-1.5 border rounded-lg text-xs font-bold q-text" />
+          <select class="p-1.5 border rounded-lg text-xs font-bold q-type">
+            <option value="Option">Đạt / Không (YES/NO)</option>
+            <option value="Text">Nhập Chữ / Thông Số (°C, Bar)</option>
+            <option value="Date">Chọn Ngày Tháng</option>
+          </select>
+          <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 font-bold px-1">&times;</button>
+        `;
+        container.appendChild(div);
+      }
+
+      function saveFormTemplate() {
+        const name = document.getElementById("form-template-name").value.trim();
+        const folder = document.getElementById("form-template-folder").value;
+        const qEls = document.querySelectorAll("#form-questions-builder > div");
+
+        if (!name) {
+          showCustomToast("Vui lòng nhập tên Form!", "error");
+          return;
+        }
+
+        const questions = [];
+        qEls.forEach((el) => {
+          const txt = el.querySelector(".q-text").value.trim();
+          const type = el.querySelector(".q-type").value;
+          if (txt) questions.push({ text: txt, type: type });
+        });
+
+        const newTmpl = {
+          id: "tmpl-" + Date.now(),
+          name: name,
+          folder: folder,
+          questions: questions.length > 0 ? questions : [{ text: "Kiểm tra tình trạng chung", type: "Option" }]
+        };
+
+        state.templates.push(newTmpl);
+        showCustomToast("Đã tạo mẫu Form bảo trì thành công!", "success");
+        document.getElementById("form-template-name").value = "";
+        document.getElementById("form-questions-builder").innerHTML = "";
+        renderWeeklyPlanTable();
+      }
+
+      // Fix B4: Open Fill Form Modal directly from Weekly Plan link
+      function openFillFormModal(tmplId, taskId = null) {
+        const tmpl = state.templates.find((x) => x.id === tmplId);
+        if (!tmpl) return;
+
+        activeFillingTemplateId = tmplId;
+        activeFillingTaskId = taskId;
+
+        document.getElementById("fill-form-title").innerText = tmpl.name.toUpperCase();
+        const body = document.getElementById("fill-form-body");
+        body.innerHTML = "";
+
+        tmpl.questions.forEach((q, idx) => {
+          let inputHTML = "";
+          if (q.type === "Option") {
+            inputHTML = `
+              <select class="p-2 border rounded-xl font-bold bg-slate-50 form-answer-val" data-idx="${idx}">
+                <option value="ĐẠT (YES)">ĐẠT (YES)</option>
+                <option value="KHÔNG ĐẠT (NO)">KHÔNG ĐẠT (NO)</option>
+                <option value="N/A">N/A</option>
+              </select>
+            `;
+          } else if (q.type === "Date") {
+            inputHTML = `<input type="date" class="p-2 border rounded-xl font-bold bg-slate-50 form-answer-val" data-idx="${idx}" />`;
+          } else {
+            inputHTML = `<input type="text" placeholder="Nhập kết quả..." class="p-2 border rounded-xl font-bold bg-slate-50 w-full form-answer-val" data-idx="${idx}" />`;
+          }
+
+          // Fix B1: Note field for each step
+          body.innerHTML += `
+            <div class="p-3 bg-slate-50 rounded-2xl border space-y-2">
+              <div class="font-extrabold text-slate-800">${idx + 1}. ${q.text}</div>
+              <div>${inputHTML}</div>
+              <input type="text" placeholder="Ghi chú bước này (nếu có)..." class="w-full p-2 border rounded-xl text-xs bg-white font-medium form-step-note" data-idx="${idx}" />
+            </div>
+          `;
+        });
+
+        // Signatures and Performed By
+        body.innerHTML += `
+          <div class="grid grid-cols-2 gap-4 border-t pt-3">
+            <div>
+              <label class="block font-bold text-slate-600 mb-1">Người Thực Hiện Bảo Trì</label>
+              <input type="text" id="form-tech-signature-name" value="${state.currentUser ? state.currentUser.fullname : ''}" class="w-full p-2 border rounded-xl font-bold bg-white" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-600 mb-1">Đại Diện Bộ Phận Vận Hành Ký Nhận</label>
+              <input type="text" id="form-operator-signature-name" placeholder="Họ tên người nghiệm thu..." class="w-full p-2 border rounded-xl font-bold bg-white" />
+            </div>
+          </div>
+        `;
+
+        document.getElementById("fill-form-modal").classList.remove("hidden");
+      }
+
+      function closeFillFormModal() {
+        document.getElementById("fill-form-modal").classList.add("hidden");
+      }
+
+      function submitFilledForm() {
+        const tmpl = state.templates.find((x) => x.id === activeFillingTemplateId);
+        if (!tmpl) return;
+
+        const answerInputs = document.querySelectorAll(".form-answer-val");
+        const noteInputs = document.querySelectorAll(".form-step-note");
+
+        const details = [];
+        answerInputs.forEach((inp, idx) => {
+          details.push({
+            question: tmpl.questions[idx] ? tmpl.questions[idx].text : "Bước " + (idx + 1),
+            answer: inp.value,
+            note: noteInputs[idx] ? noteInputs[idx].value : ""
+          });
+        });
+
+        const submitted = {
+          id: "sub-" + Date.now(),
+          templateName: tmpl.name,
+          folder: tmpl.folder,
+          date: new Date().toLocaleDateString("vi-VN"),
+          techName: document.getElementById("form-tech-signature-name").value || "Kỹ thuật viên",
+          operatorName: document.getElementById("form-operator-signature-name").value || "Vận hành",
+          details: details
+        };
+
+        state.submittedForms.push(submitted);
+        if (isCloudActive && db) db.collection("system_kpi_v29_forms").doc(submitted.id).set(submitted);
+
+        // Update active task progress if linked
+        if (activeFillingTaskId) {
+          const task = state.tasks.find((t) => t.id === activeFillingTaskId);
+          if (task) {
+            task.progress = "Hoàn thành";
+            saveTaskToCloud(task);
+          }
+        }
+
+        closeFillFormModal();
+        renderSubmittedFormsList();
+        renderWeeklyPlanTable();
+        showCustomToast("Đã nộp phiếu bảo trì thành công!", "success");
+      }
+
+      // Fix B3: Delete test form capability
+      function renderSubmittedFormsList() {
+        const grid = document.getElementById("submitted-forms-grid");
+        if (!grid) return;
+        grid.innerHTML = "";
+
+        const filterFolder = document.getElementById("filter-submitted-folder") ? document.getElementById("filter-submitted-folder").value : "ALL";
+
+        let filtered = state.submittedForms;
+        if (filterFolder !== "ALL") {
+          filtered = filtered.filter((f) => f.folder === filterFolder);
+        }
+
+        if (filtered.length === 0) {
+          grid.innerHTML = `<div class="col-span-2 text-center text-slate-400 font-bold py-8">Chưa có phiếu bảo trì nào được lưu trong folder này.</div>`;
+          return;
+        }
+
+        filtered.forEach((f) => {
+          grid.innerHTML += `
+            <div class="p-4 bg-slate-50 rounded-2xl border space-y-2 relative shadow-sm">
+              <button onclick="deleteSubmittedForm('${f.id}')" class="absolute top-2 right-2 text-rose-500 hover:text-rose-700 font-bold text-xs" title="Xóa form test">&times; Xóa</button>
+              <div class="font-extrabold text-blue-700 text-xs">${f.templateName}</div>
+              <div class="text-[10px] text-slate-400 font-bold">Folder: ${f.folder} | Ngày: ${f.date}</div>
+              <div class="text-[11px] font-semibold text-slate-600">Thực hiện: ${f.techName} | Nghiệm thu: ${f.operatorName}</div>
+              <div class="pt-2 border-t flex justify-end">
+                <button onclick="exportFormPDF('${f.id}')" class="px-3 py-1 bg-indigo-600 text-white font-bold text-[10px] rounded-lg">In / Xuất PDF</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      function deleteSubmittedForm(id) {
+        if (confirm("Bạn có chắc chắn muốn xóa phiếu bảo trì này?")) {
+          state.submittedForms = state.submittedForms.filter((x) => x.id !== id);
+          if (isCloudActive && db) db.collection("system_kpi_v29_forms").doc(id).delete();
+          renderSubmittedFormsList();
+          showCustomToast("Đã xóa phiếu bảo trì!", "info");
+        }
+      }
+
+      function exportFormPDF(id) {
+        showCustomToast("Đang chuẩn bị bản in / PDF...", "info");
+        window.print();
+      }
+
+      function renderKpiDashboard() {
+        // Render Attitude Grading Board
+        const attitudeBody = document.getElementById("attitude-grading-table-body");
+        if (attitudeBody) {
+          attitudeBody.innerHTML = "";
+          state.members.forEach((m) => {
+            const att = m.attitude || { supervisor: 5, attendance: 5, initiative: 5, feedback: 5 };
+            const avgAttitude = ((att.supervisor + att.attendance + att.initiative + att.feedback) / 4).toFixed(1);
+
+            attitudeBody.innerHTML += `
+              <tr class="border-b hover:bg-slate-50 text-xs">
+                <td class="p-2.5 font-extrabold text-slate-800">${m.fullname} <span class="text-[10px] font-semibold text-slate-400">(${m.title})</span></td>
+                <td class="p-2.5 text-center font-bold">${att.supervisor}</td>
+                <td class="p-2.5 text-center font-bold">${att.attendance}</td>
+                <td class="p-2.5 text-center font-bold">${att.initiative}</td>
+                <td class="p-2.5 text-center font-bold">${att.feedback}</td>
+                <td class="p-2.5 text-center font-black text-purple-700 bg-purple-50/50">${avgAttitude} / 5.0</td>
+              </tr>
+            `;
+          });
+        }
+
+        // Calculate KPI Data grouped by Role / Title
+        const dutyMembers = state.members.filter((m) => m.title === "Duty Manager");
+        const techMembers = state.members.filter((m) => m.title === "Senior Technician" || m.title === "Technician");
+        const carpMembers = state.members.filter((m) => m.title === "Carpenter");
+
+        const dutyKpiData = calculateGroupKPI(dutyMembers);
+        const techKpiData = calculateGroupKPI(techMembers);
+        const carpKpiData = calculateGroupKPI(carpMembers);
+
+        // Render Top Performers
+        if (dutyKpiData.length > 0) {
+          document.getElementById("top-duty-name").innerText = dutyKpiData[0].fullname;
+          document.getElementById("top-duty-score").innerText = dutyKpiData[0].kpiScore.toFixed(1) + "% (" + dutyKpiData[0].totalTasks + " việc)";
+        }
+        if (techKpiData.length > 0) {
+          document.getElementById("top-tech-name").innerText = techKpiData[0].fullname;
+          document.getElementById("top-tech-score").innerText = techKpiData[0].kpiScore.toFixed(1) + "% (" + techKpiData[0].totalTasks + " việc)";
+        }
+        if (carpKpiData.length > 0) {
+          document.getElementById("top-carp-name").innerText = carpKpiData[0].fullname;
+          document.getElementById("top-carp-score").innerText = carpKpiData[0].kpiScore.toFixed(1) + "% (" + carpKpiData[0].totalTasks + " việc)";
+        }
+
+        // Fix C1: Render Mixed Bar + Line Charts with dynamic column coloring
+        renderMixedKpiChart("kpiDutyChart", dutyKpiData, chartDuty, (inst) => { chartDuty = inst; });
+        renderMixedKpiChart("kpiTechChart", techKpiData, chartTech, (inst) => { chartTech = inst; });
+        renderMixedKpiChart("kpiCarpenterChart", carpKpiData, chartCarp, (inst) => { chartCarp = inst; });
+      }
+
+      function calculateGroupKPI(members) {
+        const results = [];
+
+        members.forEach((m) => {
+          const userTasks = state.tasks.filter((t) => t.assignees && t.assignees.includes(m.fullname));
+          const userEmerging = state.emergingTasks.filter((t) => t.assignees && t.assignees.includes(m.fullname));
+          const totalTasks = userTasks.length + userEmerging.length;
+
+          let totalScoreSum = 0;
+          userTasks.forEach((t) => {
+            if (t.progress === "Hoàn thành") totalScoreSum += 100;
+            else if (t.progress === "Đang thực hiện") totalScoreSum += 50;
+            else if (t.progress === "Làm lại") totalScoreSum += 20;
+            else totalScoreSum += 0;
+          });
+          userEmerging.forEach(() => { totalScoreSum += 100; });
+
+          const workAvg = totalTasks > 0 ? totalScoreSum / totalTasks : 100;
+
+          // 30% Attitude
+          const att = m.attitude || { supervisor: 5, attendance: 5, initiative: 5, feedback: 5 };
+          const attitudeAvgScale = (att.supervisor + att.attendance + att.initiative + att.feedback) / 4;
+          const attitudePercent = (attitudeAvgScale / 5.0) * 100;
+
+          // Fix C2: Combined 70% Work + 30% Attitude Formula
+          const finalKpiScore = (workAvg * 0.70) + (attitudePercent * 0.30);
+
+          results.push({
+            fullname: m.fullname,
+            totalTasks: totalTasks,
+            workAvg: workAvg,
+            attitudePercent: attitudePercent,
+            kpiScore: finalKpiScore
+          });
+        });
+
+        // Sort descending from highest % to lowest %
+        results.sort((a, b) => b.kpiScore - a.kpiScore);
+        return results;
+      }
+
+      function renderMixedKpiChart(canvasId, dataList, existingChartInstance, setChartRef) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+
+        if (existingChartInstance) existingChartInstance.destroy();
+
+        const labels = dataList.map((d) => d.fullname);
+        const taskCounts = dataList.map((d) => d.totalTasks);
+        const kpiPercentages = dataList.map((d) => d.kpiScore);
+
+        // Dynamic Color Logic for Bar Columns
+        const barColors = kpiPercentages.map((pct) => {
+          if (pct >= 99) return "#ef4444"; // Red (Xuất sắc)
+          if (pct >= 95) return "#10b981"; // Green (Giỏi)
+          if (pct >= 90) return "#f97316"; // Orange (Khá)
+          if (pct >= 70) return "#3b82f6"; // Blue (Trung bình)
+          return "#6b7280"; // Grey
+        });
+
+        const newChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                type: "line",
+                label: "% KPI Hoàn Thành",
+                data: kpiPercentages,
+                borderColor: "#8b5cf6",
+                borderWidth: 3,
+                fill: false,
+                yAxisID: "y1",
+                tension: 0.3
+              },
+              {
+                type: "bar",
+                label: "Số Công Việc Thực Hiện",
+                data: taskCounts,
+                backgroundColor: barColors,
+                borderRadius: 8,
+                yAxisID: "y"
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: { display: true, text: "Số việc", font: { size: 10, weight: "bold" } }
+              },
+              y1: {
+                position: "right",
+                min: 0,
+                max: 100,
+                title: { display: true, text: "% KPI", font: { size: 10, weight: "bold" } },
+                grid: { drawOnChartArea: false }
+              }
+            }
+          }
+        });
+
+        setChartRef(newChart);
+      }
+
+      function switchTab(tabId) {
+        // Fix A7: Strict Permission Guard for KPI and Admin tabs
+        const isNonAdmin = state.currentUser && state.currentUser.role === "Nhân viên";
+        if (isNonAdmin && (tabId === "kpi-dashboard" || tabId === "admin-config")) {
+          showCustomToast("⛔ Quyền truy cập bị từ chối! Mục này dành riêng cho Admin.", "error");
+          return;
+        }
+
+        ["weekly-plan", "backlogs", "emerging-tasks", "maintenance-forms", "kpi-dashboard", "admin-config"].forEach((v) => {
+          const el = document.getElementById(`view-${v}`);
+          const btn = document.getElementById(`tab-btn-${v}`);
+          if (el) el.classList.add("hidden");
+          if (btn) btn.classList.remove("tab-active", "bg-white", "shadow-sm", "text-slate-900");
+        });
+
+        const activeView = document.getElementById(`view-${tabId}`);
+        const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+        if (activeView) activeView.classList.remove("hidden");
+        if (activeBtn) activeBtn.classList.add("tab-active", "bg-white", "shadow-sm", "text-slate-900");
+
+        if (tabId === "weekly-plan") renderWeeklyPlanTable();
+        if (tabId === "backlogs") renderBacklogsTable();
+        if (tabId === "emerging-tasks") renderEmergingTasksTable();
+        if (tabId === "kpi-dashboard") renderKpiDashboard();
+        if (tabId === "admin-config") renderAdminConfig();
+      }
+
+      function checkSystemPauseState() {
+        const isSuperAdmin = state.currentUser && state.currentUser.role === "Super Admin";
+        const overlay = document.getElementById("system-paused-overlay");
+
+        if (state.settings && state.settings.systemPaused && !isSuperAdmin) {
+          overlay.classList.remove("hidden");
+        } else {
+          overlay.classList.add("hidden");
+        }
+
+        const pauseBtn = document.getElementById("toggle-pause-btn");
+        const pauseLabel = document.getElementById("system-pause-status-label");
+        if (pauseBtn && pauseLabel) {
+          if (state.settings.systemPaused) {
+            pauseBtn.innerText = "Kích Hoạt Lại Ứng Dụng";
+            pauseBtn.className = "px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition";
+            pauseLabel.innerText = "Đang Tạm Dừng";
+            pauseLabel.className = "text-[10px] font-bold text-rose-600";
+          } else {
+            pauseBtn.innerText = "Tạm Dừng Ứng Dụng";
+            pauseBtn.className = "px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow transition";
+            pauseLabel.innerText = "Đang hoạt động bình thường";
+            pauseLabel.className = "text-[10px] font-bold text-emerald-600";
+          }
+        }
+      }
+
+      async function toggleSystemPause() {
+        if (!state.currentUser || state.currentUser.role !== "Super Admin") {
+          showCustomToast("⛔ CHỈ HUỲNH NAM THẮNG MỚI CÓ QUYỀN NÀY!", "error");
+          return;
+        }
+
+        state.settings.systemPaused = !state.settings.systemPaused;
+        if (isCloudActive && db) {
+          await db.collection("system_kpi_v29_config").doc("main").set({ settings: state.settings }, { merge: true });
+        }
+        checkSystemPauseState();
+        showCustomToast(state.settings.systemPaused ? "Đã tạm dừng ứng dụng!" : "Đã kích hoạt ứng dụng!", "info");
+      }
+
+      function resetApplicationStorage() {
+        if (!state.currentUser || state.currentUser.role !== "Super Admin") {
+          showCustomToast("⛔ CHỈ HUỲNH NAM THẮNG MỚI CÓ QUYỀN NÀY!", "error");
+          return;
+        }
+        if (confirm("Khôi phục ứng dụng về cấu hình gốc?")) {
+          localStorage.clear();
+          location.reload();
+        }
+      }
+
+      function renderAdminConfig() {
+        const tbody = document.getElementById("admin-members-list");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        state.members.forEach((m) => {
+          tbody.innerHTML += `
+            <tr class="border-b hover:bg-slate-50 text-xs">
+              <td class="p-2.5 font-bold">${m.fullname}</td>
+              <td class="p-2.5 font-semibold text-slate-600">${m.user}</td>
+              <td class="p-2.5 font-extrabold ${m.role === 'Super Admin' ? 'text-rose-600' : 'text-blue-600'}">${m.title} (${m.role})</td>
+              <td class="p-2.5 font-mono">${m.pass}</td>
+              <td class="p-2.5 text-center">
+                <button onclick="deleteMember('${m.id}')" class="text-rose-500 font-bold p-1"><i class="fa-solid fa-trash-can"></i></button>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      function openAddMemberModal() { document.getElementById("add-member-modal").classList.remove("hidden"); }
+      function closeAddMemberModal() { document.getElementById("add-member-modal").classList.add("hidden"); }
+
+      document.getElementById("add-member-form").onsubmit = function (e) {
+        e.preventDefault();
+        const fullname = document.getElementById("new-mem-fullname").value.trim();
+        const user = document.getElementById("new-mem-user").value.trim();
+        const pass = document.getElementById("new-mem-pass").value.trim();
+        const title = document.getElementById("new-mem-title").value;
+
+        const role = title === "Admin" ? "Admin" : "Nhân viên";
+        const newM = {
+          id: "mem-" + Date.now(),
+          fullname: fullname,
+          user: user,
+          pass: pass,
+          role: role,
+          title: title,
+          attitude: { supervisor: 5, attendance: 5, initiative: 5, feedback: 5 }
+        };
+
+        state.members.push(newM);
+        if (isCloudActive && db) db.collection("system_kpi_v29_members").doc(newM.id).set(newM);
+
+        closeAddMemberModal();
+        refreshUI();
+        renderAdminConfig();
+        showCustomToast("Đã thêm nhân viên thành công!", "success");
+      };
+
+      function deleteMember(id) {
+        if (confirm("Xóa tài khoản nhân viên này?")) {
+          state.members = state.members.filter((x) => x.id !== id);
+          if (isCloudActive && db) db.collection("system_kpi_v29_members").doc(id).delete();
+          refreshUI();
+          renderAdminConfig();
+        }
+      }
+
+      function openAuditLogModal() {
+        const list = document.getElementById("audit-log-list");
+        list.innerHTML = "";
+        if (state.auditLogs.length === 0) {
+          list.innerHTML = `<div class="text-center text-slate-400 py-4 font-semibold">Chưa có nhật ký hoạt động.</div>`;
+        } else {
+          state.auditLogs.forEach((log) => {
+            list.innerHTML += `
+              <div class="p-2.5 bg-slate-50 rounded-xl border space-y-1">
+                <div class="font-bold text-slate-800 text-[11px]">${log.action}</div>
+                <div class="text-[10px] text-slate-400 flex justify-between">
+                  <span>Thực hiện: <b>${log.user}</b></span>
+                  <span>${log.time}</span>
+                </div>
+              </div>
+            `;
+          });
+        }
+        document.getElementById("audit-log-modal").classList.remove("hidden");
+      }
+
+      function closeAuditLogModal() { document.getElementById("audit-log-modal").classList.add("hidden"); }
+
+      function loginSuccess(user) {
+        document.getElementById("login-container").classList.add("hidden");
+        document.getElementById("main-workspace").classList.remove("hidden");
+        document.getElementById("header-user-fullname").innerText = user.fullname;
+        document.getElementById("header-user-role").innerText = user.title + " (" + user.role + ")";
+        checkSystemPauseState();
+        switchTab("weekly-plan");
+      }
+
+      document.getElementById("login-form").onsubmit = function (e) {
+        e.preventDefault();
+        const u = document.getElementById("login-username-select").value;
+        const p = document.getElementById("login-password-input").value;
+        const found = state.members.find((m) => m.user === u && m.pass === p);
+
+        if (found) {
+          state.currentUser = found;
+          sessionStorage.setItem("kpi_v29_current_user_id", found.id);
+          loginSuccess(found);
+        } else {
+          showCustomToast("Sai mật khẩu hoặc tên đăng nhập!", "error");
+        }
+      };
+
+      function logout() {
+        state.currentUser = null;
+        sessionStorage.removeItem("kpi_v29_current_user_id");
+        document.getElementById("main-workspace").classList.add("hidden");
+        document.getElementById("login-container").classList.remove("hidden");
+      }
+
+      function refreshUI() {
+        const userSelect = document.getElementById("login-username-select");
+        if (userSelect) {
+          userSelect.innerHTML = `<option value="">-- Chọn tài khoản --</option>`;
+          state.members.forEach((m) => {
+            userSelect.innerHTML += `<option value="${m.user}">${m.fullname} (${m.title})</option>`;
+          });
+        }
+        setupWeeklyFilters();
+      }
+
+      function setupWeeklyFilters() {
+        const filter = document.getElementById("week-filter");
+        if (filter) {
+          filter.innerHTML = "";
+          state.weeks.forEach((w) => {
+            filter.innerHTML += `<option value="${w}" ${w === activeWeekFilterVal ? "selected" : ""}>${w}</option>`;
+          });
+        }
+      }
+
+      function changeActiveWeekFilter() {
+        activeWeekFilterVal = document.getElementById("week-filter").value;
+        renderWeeklyPlanTable();
+      }
+
+      function loadKeepLoggedIn() {
+        const keepId = sessionStorage.getItem("kpi_v29_current_user_id");
+        if (!keepId) return;
+        const found = state.members.find((m) => String(m.id) === String(keepId));
+        if (found) {
+          state.currentUser = found;
+          loginSuccess(found);
+        }
+      }
+
+      function getProgressBadgeColor(progress) {
+        if (progress === "Hoàn thành") return "bg-emerald-100 text-emerald-800";
+        if (progress === "Đang thực hiện") return "bg-blue-100 text-blue-800";
+        if (progress === "Làm lại") return "bg-amber-100 text-amber-800";
+        return "bg-rose-100 text-rose-800";
+      }
+
+      function parseUrlsInText(text) {
+        if (!text) return "";
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        return text.replace(urlRegex, (url) => `<a href="${url}" target="_blank" class="url-link-badge"><i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> Mở Link</a>`);
+      }
+
+      function uploadTaskPhoto(taskId, input) {
+        if (!input.files || !input.files[0]) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const task = state.tasks.find((x) => String(x.id) === String(taskId));
+          if (task) {
+            if (!task.photos) task.photos = [];
+            task.photos.push(e.target.result);
+            saveTaskToCloud(task);
+            renderWeeklyPlanTable();
+            showCustomToast("Đã chèn ảnh minh chứng!", "success");
+          }
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+
+      function deleteTaskPhoto(taskId, idx) {
+        const task = state.tasks.find((x) => String(x.id) === String(taskId));
+        if (task && task.photos) {
+          task.photos.splice(idx, 1);
+          saveTaskToCloud(task);
+          renderWeeklyPlanTable();
+        }
+      }
+
+      function openPhotoPreview(src) {
+        const w = window.open("");
+        w.document.write(`<body style="margin:0;background:#000;display:flex;justify-content:center;align-items:center;height:100vh;"><img src="${src}" style="max-width:100%;max-height:100vh;object-fit:contain;"/></body>`);
+      }
+
+      function showCustomToast(msg, type = "success") {
+        const container = document.getElementById("toast-container");
+        if (!container) return;
+        const toast = document.createElement("div");
+        let bg = type === "error" ? "bg-rose-600" : type === "info" ? "bg-blue-600" : "bg-emerald-600";
+        toast.className = `${bg} text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2 pointer-events-auto transition-all duration-300 animate-bounce`;
+        toast.innerHTML = `<i class="fa-solid fa-circle-info"></i><span>${msg}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+      }
+
+      window.onload = function () {
+        refreshUI();
+        initFirebase();
+      };
+    </script>
+  </body>
+</html>
