@@ -2394,7 +2394,54 @@ let activeGradingMember = null;
 let dutyChartInstance = null;
 let techChartInstance = null;
 let carpenterChartInstance = null;
+// =========================================================================
+// HÀM XỬ LÝ NÉN VÀ THU NHỎ KÍCH THƯỚC ẢNH TỰ ĐỘNG TRƯỚC KHI TẢI LÊN CLOUD
+// =========================================================================
+function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      reject(new Error("Tệp được chọn không phải là hình ảnh hợp lệ."));
+      return;
+    }
 
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        // Tính toán lại kích thước dựa trên giới hạn maxWidth và maxHeight
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Chuyển đổi canvas thành chuỗi mã hóa JPEG nén chất lượng 70%
+        const compressedBase64 = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressedBase64);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
 // ====== INITIALIZE FIREBASE ======
 async function initFirebase() {
   try {
@@ -2527,17 +2574,20 @@ function loadLocalFallback() {
 
 // ====== SAVE STATE (ĐÃ BỎ CỜ ECHO) ======
 async function saveState() {
-  // Đồng bộ tạm xuống LocalStorage dự phòng
   const stateToPersist = { ...state, currentUser: null };
-  localStorage.setItem(
-    "kpi_app_state_v28",
-    JSON.stringify(stateToPersist)
-  );
 
-  if (isCloudActive) {
+  // 1. Lưu bản sao dự phòng xuống bộ nhớ LocalStorage
+  try {
+    localStorage.setItem("kpi_app_state_v28", JSON.stringify(stateToPersist));
+  } catch (e) {
+    console.warn("Bộ nhớ LocalStorage đã bị đầy:", e);
+  }
+
+  // 2. Đồng bộ dữ liệu tập trung lên Cloud Firestore
+  if (isCloudActive && db) {
     const stateDocRef = db.collection("system_kpi_v28").doc("data_state");
     try {
-      await stateDocRef.set({
+      const payload = {
         members: state.members,
         tasks: state.tasks,
         backlogs: state.backlogs,
@@ -2547,13 +2597,19 @@ async function saveState() {
         weeks: state.weeks,
         adminNotifications: state.adminNotifications,
         settings: state.settings,
-      });
+      };
+
+      await stateDocRef.set(payload);
     } catch (e) {
-      console.error("Lỗi cập nhật cloud state: ", e);
+      console.error("Lỗi đồng bộ Cloud Firestore:", e);
+      if (e.code === "invalid-argument" || (e.message && e.message.includes("exceeds the maximum allowed size"))) {
+        showCustomToast("LỖI DUNG LƯỢNG: Dữ liệu vượt quá 1MB của Firestore! Hãy xóa bớt ảnh cũ.", "error");
+      } else {
+        showCustomToast("CẢNH BÁO: Mất kết nối Cloud, dữ liệu chỉ lưu cục bộ!", "warning");
+      }
     }
   }
 }
-
       function logAction(action, details) {
         const entry = {
           id: "log-" + Date.now(),
@@ -3083,7 +3139,7 @@ async function saveState() {
                 <div class="flex flex-wrap gap-1 justify-center">${photosHTML}</div>
                 <label class="bg-slate-100 hover:bg-slate-200 text-slate-600 p-1.5 rounded-lg border cursor-pointer inline-flex items-center">
                   <i class="fa-solid fa-camera text-[15px]"></i>
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadTaskPhoto('${task.id}', this)">
+                  <<input type="file" accept="image/*" class="hidden" onchange="uploadTaskPhoto('${task.id}', this)" onclick="this.value=null;">
 
                 </label>
 
@@ -4485,21 +4541,27 @@ async function saveState() {
         });
       }
 
-      function previewFormPhotos(input) {
-        formPhotosDataUrls = [];
-        const preview = document.getElementById("fill-form-photos-preview");
-        preview.innerHTML = "";
-        if (input.files) {
-          Array.from(input.files).forEach((file) => {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-              formPhotosDataUrls.push(e.target.result);
-              preview.innerHTML += `<img src="${e.target.result}" class="w-16 h-16 rounded object-cover border" />`;
-            };
-            reader.readAsDataURL(file);
-          });
-        }
+      async function previewFormPhotos(input) {
+  formPhotosDataUrls = [];
+  const preview = document.getElementById("fill-form-photos-preview");
+  if (!preview) return;
+  preview.innerHTML = "";
+
+  if (input.files && input.files.length > 0) {
+    showCustomToast("Đang nén ảnh biểu mẫu bảo trì...", "info");
+    try {
+      const files = Array.from(input.files);
+      for (const file of files) {
+        const compressedBase64 = await compressImage(file, 800, 800, 0.7);
+        formPhotosDataUrls.push(compressedBase64);
+        preview.innerHTML += `<img src="${compressedBase64}" class="w-16 h-16 rounded object-cover border shadow-sm" />`;
       }
+    } catch (err) {
+      console.error("Lỗi khi xử lý nén ảnh biểu mẫu:", err);
+      showCustomToast("Không thể xử lý hình ảnh minh chứng phiếu bảo trì!", "error");
+    }
+  }
+}
 
       document.getElementById("active-maintenance-form").onsubmit = function (
         e,
@@ -5110,22 +5172,28 @@ async function saveState() {
         }
       }
 
-      function uploadTaskPhoto(taskId, input) {
-        if (input.files && input.files[0]) {
-          const reader = new FileReader();
-          reader.onload = function (e) {
-            const t = state.tasks.find((x) => x.id === taskId);
-            if (t) {
-              if (!t.photos) t.photos = [];
-              t.photos.push(e.target.result);
-              saveState();
-              renderWeeklyPlanTable();
-              showCustomToast("Tải ảnh thành công!", "success");
-            }
-          };
-          reader.readAsDataURL(input.files[0]);
-        }
+      async function uploadTaskPhoto(taskId, input) {
+  if (input.files && input.files[0]) {
+    try {
+      showCustomToast("Đang xử lý nén dung lượng ảnh...", "info");
+      const compressedBase64 = await compressImage(input.files[0], 800, 800, 0.7);
+      
+      const t = state.tasks.find((x) => x.id === taskId);
+      if (t) {
+        if (!t.photos) t.photos = [];
+        t.photos.push(compressedBase64);
+        await saveState();
+        renderWeeklyPlanTable();
+        showCustomToast("Tải ảnh minh chứng thành công!", "success");
       }
+    } catch (err) {
+      console.error("Lỗi khi xử lý hình ảnh:", err);
+      showCustomToast("Không thể nén hoặc tải ảnh lên. Vui lòng thử lại!", "error");
+    } finally {
+      input.value = ""; // Đặt lại giá trị input để hỗ trợ chọn lại cùng 1 tệp tin
+    }
+  }
+}
 
       function deleteTaskPhoto(id, idx) {
         const t = state.tasks.find((x) => x.id === id);
@@ -5827,29 +5895,27 @@ async function saveState() {
       }
 
       // Tải ảnh lên -> convert base64 -> đẩy vào item.photos
-      function handleBacklogPhotoUpload(id, fileList) {
-        const item = state.backlogs.find((b) => String(b.id) === String(id));
-        if (!item || !fileList || fileList.length === 0) return;
+      async function handleBacklogPhotoUpload(id, fileList) {
+  const item = state.backlogs.find((b) => String(b.id) === String(id));
+  if (!item || !fileList || fileList.length === 0) return;
 
-        if (!item.photos) item.photos = [];
+  if (!item.photos) item.photos = [];
+  showCustomToast("Đang nén danh sách ảnh tồn đọng...", "info");
 
-        const files = Array.from(fileList);
-        let loadedCount = 0;
-
-        files.forEach((file) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            item.photos.push(e.target.result);
-            loadedCount++;
-            if (loadedCount === files.length) {
-              saveState();
-              renderBacklogsTable(); // cần render lại để hiện ảnh mới thêm
-            }
-          };
-          reader.readAsDataURL(file);
-        });
-      }
-
+  try {
+    const files = Array.from(fileList);
+    for (const file of files) {
+      const compressedBase64 = await compressImage(file, 800, 800, 0.7);
+      item.photos.push(compressedBase64);
+    }
+    await saveState();
+    renderBacklogsTable();
+    showCustomToast("Tải dữ liệu hình ảnh tồn đọng thành công!", "success");
+  } catch (err) {
+    console.error("Lỗi xử lý danh sách ảnh tồn đọng:", err);
+    showCustomToast("Không thể tải danh sách ảnh tồn đọng!", "error");
+  }
+}
       // Xoá 1 ảnh theo index
       function deleteBacklogPhoto(id, index) {
         const item = state.backlogs.find((b) => String(b.id) === String(id));
