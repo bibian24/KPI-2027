@@ -1715,195 +1715,140 @@
       </div>
     </div>
 
-    <!-- MODAL: ĐIỀN PHIẾU BẢO TRÌ & KÝ TÊN -->
-    <div
-      id="modal-fill-form"
-      class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto"
-    >
-      <div
-        class="bg-white rounded-3xl w-full max-w-2xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto"
-      >
-        <div class="flex justify-between items-center border-b pb-3">
-          <h3 class="font-black text-slate-900 text-lg" id="fill-form-title">
-            Điền Phiếu Kiểm Tra Bảo Trì
-          </h3>
-          <button
-            onclick="closeFillFormModal()"
-            class="text-slate-400 hover:text-slate-600 text-lg"
-          >
-            &times;
-          </button>
-        </div>
+    // =========================================================================
+// XỬ LÝ LƯU PHIẾU BẢO TRÌ (ĐÃ SỬA LỖI VALIDATION VÀ TỐI ƯU LƯU TRỮ)
+// =========================================================================
+document.getElementById("active-maintenance-form").onsubmit = async function (e) {
+  e.preventDefault();
+  const responses = [];
+  let valid = true;
 
-        <form id="active-maintenance-form" class="space-y-4 text-xs">
-          <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border">
-            <div>
-              <span class="block font-semibold text-slate-500"
-                >Ngày làm việc:</span
-              >
-              <span id="fill-form-date" class="font-bold text-slate-800"
-                >-</span
-              >
-            </div>
-          </div>
-          <div>
-            <label
-              class="block text-[10px] font-bold text-slate-400 mb-0.5 uppercase"
-            >
-              Tên thiết bị
-            </label>
+  const equipmentName = document.getElementById("fill-form-new-template-equitment-name").value.trim();
+  const techName = document.getElementById("fill-form-tech-select").value;
+  const dutyName = document.getElementById("fill-form-duty-select").value;
+  const thirdParty = document.getElementById("fill-form-thirdparty-name").value.trim();
 
-            <input
-              type="text"
-              id="fill-form-new-template-equitment-name"
-              placeholder="Ví dụ: Chiller 1,..."
-              class="w-full p-2 border rounded-xl bg-slate-50 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
+  // 1. Kiểm tra thông tin hành chính bắt buộc
+  if (!equipmentName) {
+    showCustomToast("Vui lòng nhập hoặc quét mã Tên thiết bị!", "warning");
+    return;
+  }
+  if (!techName) {
+    showCustomToast("Vui lòng chọn Nhân viên thực hiện!", "warning");
+    return;
+  }
+  if (!dutyName) {
+    showCustomToast("Vui lòng chọn Trưởng ca kỹ thuật!", "warning");
+    return;
+  }
+  if (!thirdParty) {
+    showCustomToast("Vui lòng nhập tên Đối tác giám sát!", "warning");
+    return;
+  }
 
-            <div class="flex items-center gap-2 mt-2">
-              <button
-                type="button"
-                onclick="openQrScanner()"
-                class="flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
-                title="Quét QR"
-              >
-                <i class="fa-solid fa-qrcode text-base"></i>
-              </button>
+  // 2. Kiểm tra chữ ký số bắt buộc
+  if (!sigSigned.tech) {
+    showCustomToast("Thiếu chữ ký xác nhận của Nhân viên thực hiện!", "warning");
+    return;
+  }
+  if (!sigSigned.duty) {
+    showCustomToast("Thiếu chữ ký xác nhận của Trưởng ca kỹ thuật!", "warning");
+    return;
+  }
+  if (!sigSigned.thirdparty) {
+    showCustomToast("Thiếu chữ ký xác nhận của Đối tác giám sát!", "warning");
+    return;
+  }
 
-              <input
-                type="file"
-                id="qr-image-input"
-                accept="image/*"
-                onchange="scanQrFromImage(this)"
-                hidden
-              />
+  // 3. Kiểm tra danh mục câu hỏi checklist
+  if (currentFillTemplate && currentFillTemplate.questions) {
+    for (let qidx = 0; qidx < currentFillTemplate.questions.length; qidx++) {
+      const q = currentFillTemplate.questions[qidx];
+      let val = "";
+      const qType = q.type || "option";
 
-              <button
-                type="button"
-                onclick="document.getElementById('qr-image-input').click()"
-                class="flex items-center gap-1.5 px-4 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors"
-              >
-                <i class="fa-solid fa-image"></i>
-                <span>Tải ảnh QR</span>
-              </button>
-            </div>
-          </div>
+      if (qType === "option") {
+        const el = document.querySelector(`input[name="response-select-${qidx}"]:checked`);
+        val = el ? el.value : "";
+      } else {
+        const el = document.getElementById(`response-select-${qidx}`);
+        val = el ? el.value.trim() : "";
+      }
 
-          <div>
-            <span class="block text-sm font-bold text-slate-900 mb-2"
-              >Hạng mục kiểm tra chi tiết:</span
-            >
-            <div id="fill-form-checklist-container" class="space-y-4"></div>
-          </div>
+      if (!val) {
+        valid = false;
+        showCustomToast(`Bước ${qidx + 1} (${q.question || "Hạng mục kiểm tra"}) chưa chọn hoặc chưa nhập kết quả!`, "warning");
+        return;
+      }
 
-          <div>
-            <label class="block font-bold mb-1"
-              >Ảnh minh chứng hiện trạng công việc:</label
-            >
-            <input
-              type="file"
-              id="fill-form-photos"
-              multiple
-              accept="image/*"
-              class="w-full p-1.5 border rounded bg-slate-50 text-xs"
-              onchange="previewFormPhotos(this)"
-            />
-            <div
-              id="fill-form-photos-preview"
-              class="flex flex-wrap gap-2 mt-2"
-            ></div>
-          </div>
+      const noteEl = document.getElementById(`response-note-${qidx}`);
+      const note = noteEl ? noteEl.value.trim() : "";
+      responses.push({ step: q.question, val: val, note: note });
+    }
+  }
 
-          <div class="space-y-3 border-t pt-3">
-            <span class="block text-sm font-bold text-slate-900"
-              >Ký xác nhận nghiệm thu trực tiếp:</span
-            >
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="p-3 bg-slate-50 border rounded-xl space-y-2">
-                <label class="block font-bold">1. Nhân viên thực hiện:</label>
-                <select
-                  id="fill-form-tech-select"
-                  class="w-full p-1.5 border rounded bg-white text-xs font-semibold"
-                ></select>
-                <div class="border rounded bg-white p-1">
-                  <canvas
-                    id="signature-tech"
-                    class="border bg-slate-100 rounded cursor-crosshair w-full"
-                  ></canvas>
-                </div>
-                <button
-                  type="button"
-                  onclick="clearSig('tech')"
-                  class="text-rose-500 hover:underline text-[10px] font-semibold"
-                >
-                  Xóa ký lại
-                </button>
-              </div>
+  if (!valid) return;
 
-              <div class="p-3 bg-slate-50 border rounded-xl space-y-2">
-                <label class="block font-bold">2. Trưởng ca kỹ thuật:</label>
-                <select
-                  id="fill-form-duty-select"
-                  class="w-full p-1.5 border rounded bg-white text-xs font-semibold"
-                ></select>
-                <div class="border rounded bg-white p-1">
-                  <canvas
-                    id="signature-duty"
-                    class="border bg-slate-100 rounded cursor-crosshair w-full"
-                  ></canvas>
-                </div>
-                <button
-                  type="button"
-                  onclick="clearSig('duty')"
-                  class="text-rose-500 hover:underline text-[10px] font-semibold"
-                >
-                  Xóa ký lại
-                </button>
-              </div>
+  // 4. Đóng gói dữ liệu phiếu bảo trì
+  const submissionId = "sub-" + Date.now();
+  const payload = {
+    id: submissionId,
+    taskId: currentFillTaskId,
+    templateId: currentFillTemplate.id,
+    templateName: currentFillTemplate.name,
+    system: currentFillTemplate.system, // Lưu đúng thư mục hệ thống chỉ định
+    equitmentName: equipmentName,
+    dateSubmitted: new Date().toLocaleDateString("vi-VN"),
+    responses: responses,
+    photos: formPhotosDataUrls, // Mảng chuỗi ảnh Base64 đã nén
+    techs: [techName],
+    duties: [dutyName],
+    thirdPartyName: thirdParty,
+    signatures: {
+      tech: sigCanvases["tech"] ? sigCanvases["tech"].toDataURL("image/png") : null,
+      duty: sigCanvases["duty"] ? sigCanvases["duty"].toDataURL("image/png") : null,
+      thirdparty: sigCanvases["thirdparty"] ? sigCanvases["thirdparty"].toDataURL("image/png") : null,
+    },
+  };
 
-              <div class="p-3 bg-slate-50 border rounded-xl space-y-2">
-                <label class="block font-bold">3. Đối tác giám sát:</label>
-                <input
-                  type="text"
-                  id="fill-form-thirdparty-name"
-                  placeholder="Tên đơn vị..."
-                  class="w-full p-1.5 border rounded bg-white text-xs font-semibold"
-                />
-                <div class="border rounded bg-white p-1">
-                  <canvas
-                    id="signature-thirdparty"
-                    class="border bg-slate-100 rounded cursor-crosshair w-full"
-                  ></canvas>
-                </div>
-                <button
-                  type="button"
-                  onclick="clearSig('thirdparty')"
-                  class="text-rose-500 hover:underline text-[10px] font-semibold"
-                >
-                  Xóa ký lại
-                </button>
-              </div>
-            </div>
-          </div>
+  // Cập nhật trạng thái Task tương ứng trong Weekly Plan
+  const task = state.tasks.find((t) => t.id === currentFillTaskId);
+  if (task) {
+    task.formFilledId = submissionId;
+    task.progress = "Hoàn thành";
+  }
 
-          <div class="flex justify-end gap-2 pt-3 border-t">
-            <button
-              type="button"
-              onclick="closeFillFormModal()"
-              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-xl text-slate-600"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-xs font-bold rounded-xl text-white"
-            >
-              LƯU PHIẾU BẢO TRÌ
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+  // Cập nhật mảng formSubmissions cục bộ
+  const existingIndex = state.formSubmissions.findIndex((item) => item.id === submissionId);
+  if (existingIndex >= 0) {
+    state.formSubmissions[existingIndex] = payload;
+  } else {
+    state.formSubmissions.push(payload);
+  }
+
+  // 5. Lưu phiếu bảo trì vào collection form_submissions riêng trên Cloud
+  if (isCloudActive && db) {
+    try {
+      await db.collection("form_submissions").doc(submissionId).set(payload);
+      showCustomToast("Đã lưu phiếu bảo trì trực tuyến thành công!", "success");
+    } catch (err) {
+      console.error("Lỗi khi lưu phiếu bảo trì lên Firestore:", err);
+      showCustomToast("Lưu phiếu lên Cloud thất bại, dữ liệu đã lưu cục bộ!", "warning");
+    }
+  } else {
+    showCustomToast("Đã lưu phiếu bảo trì vào bộ nhớ cục bộ!", "success");
+  }
+
+  // Đồng bộ trạng thái toàn hệ thống
+  await saveState();
+  closeFillFormModal();
+  renderWeeklyPlanTable();
+  if (typeof renderSubmittedFormsList === "function") renderSubmittedFormsList();
+
+  // Đặt lại các trường nhập liệu sau khi lưu thành công
+  document.getElementById("fill-form-new-template-equitment-name").value = "";
+  document.getElementById("fill-form-thirdparty-name").value = "";
+};
 
     <!-- MODAL: XEM CHI TIẾT PHIẾU ĐÃ NỘP -->
     <div
@@ -2395,9 +2340,9 @@ let dutyChartInstance = null;
 let techChartInstance = null;
 let carpenterChartInstance = null;
 // =========================================================================
-// HÀM XỬ LÝ NÉN VÀ THU NHỎ KÍCH THƯỚC ẢNH TỰ ĐỘNG TRƯỚC KHI TẢI LÊN CLOUD
+// HÀM XỬ LÝ NÉN VÀ THU NHỎ KÍCH THƯỚC ẢNH TỰ ĐỘNG (ĐÃ TỐI ƯU DUNG LƯỢNG)
 // =========================================================================
-function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+function compressImage(file, maxWidth = 400, maxHeight = 400, quality = 0.45) {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith("image/")) {
       reject(new Error("Tệp được chọn không phải là hình ảnh hợp lệ."));
@@ -2413,7 +2358,7 @@ function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
         let width = img.width;
         let height = img.height;
 
-        // Tính toán lại kích thước dựa trên giới hạn maxWidth và maxHeight
+        // Tính toán lại tỷ lệ kích thước ảnh theo giới hạn
         if (width > height) {
           if (width > maxWidth) {
             height = Math.round((height * maxWidth) / width);
@@ -2433,7 +2378,7 @@ function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Chuyển đổi canvas thành chuỗi mã hóa JPEG nén chất lượng 70%
+        // Chuyển đổi canvas thành chuỗi JPEG nén chất lượng tối ưu
         const compressedBase64 = canvas.toDataURL("image/jpeg", quality);
         resolve(compressedBase64);
       };
@@ -2572,7 +2517,7 @@ function loadLocalFallback() {
   refreshUI();
 }
 
-// ====== SAVE STATE (ĐÃ BỎ CỜ ECHO) ======
+// ====== HÀM LƯU TRẠNG THÁI HỆ THỐNG VÀ ĐỒNG BỘ CLOUD ======
 async function saveState() {
   const stateToPersist = { ...state, currentUser: null };
 
@@ -2598,6 +2543,15 @@ async function saveState() {
         adminNotifications: state.adminNotifications,
         settings: state.settings,
       };
+
+      // Kiểm tra dung lượng payload trước khi phát lệnh ghi
+      const payloadString = JSON.stringify(payload);
+      const payloadSizeBytes = new Blob([payloadString]).size;
+
+      if (payloadSizeBytes > 950000) { // Cảnh báo khi dữ liệu vượt quá 950 KB
+        console.warn("CẢNH BÁO: Dung lượng dữ liệu tiệm cận giới hạn 1MB Firestore:", payloadSizeBytes);
+        showCustomToast("CẢNH BÁO: Dung lượng ảnh tích lũy sắp vượt quá 1MB! Hãy xóa bớt ảnh cũ.", "warning");
+      }
 
       await stateDocRef.set(payload);
     } catch (e) {
@@ -4541,21 +4495,23 @@ async function saveState() {
         });
       }
 
-      async function previewFormPhotos(input) {
+async function previewFormPhotos(input) {
   formPhotosDataUrls = [];
   const preview = document.getElementById("fill-form-photos-preview");
   if (!preview) return;
   preview.innerHTML = "";
 
   if (input.files && input.files.length > 0) {
-    showCustomToast("Đang nén ảnh biểu mẫu bảo trì...", "info");
+    showCustomToast("Đang nén ảnh minh chứng phiếu bảo trì...", "info");
     try {
       const files = Array.from(input.files);
       for (const file of files) {
-        const compressedBase64 = await compressImage(file, 800, 800, 0.7);
+        // Nén ảnh form với kích thước 600px, chất lượng 0.55
+        const compressedBase64 = await compressImage(file, 600, 600, 0.55);
         formPhotosDataUrls.push(compressedBase64);
         preview.innerHTML += `<img src="${compressedBase64}" class="w-16 h-16 rounded object-cover border shadow-sm" />`;
       }
+      showCustomToast("Xử lý ảnh minh chứng hoàn tất!", "success");
     } catch (err) {
       console.error("Lỗi khi xử lý nén ảnh biểu mẫu:", err);
       showCustomToast("Không thể xử lý hình ảnh minh chứng phiếu bảo trì!", "error");
@@ -6696,72 +6652,63 @@ async function saveState() {
       let sigSigned = { tech: false, duty: false, thirdparty: false };
 
       function initSignaturePads() {
-        ["tech", "duty", "thirdparty"].forEach((type) => {
-          const canvas = document.getElementById(`signature-${type}`);
-          if (!canvas) return;
-          const ctx = canvas.getContext("2d");
-          sigCanvases[type] = canvas;
-          sigCtxs[type] = ctx;
+  ["tech", "duty", "thirdparty"].forEach((type) => {
+    const canvas = document.getElementById(`signature-${type}`);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    sigCanvases[type] = canvas;
+    sigCtxs[type] = ctx;
 
-          let drawing = false;
-          let lastX = 0,
-            lastY = 0;
+    let drawing = false;
+    let lastX = 0, lastY = 0;
 
-          function getPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-            return { x: clientX - rect.left, y: clientY - rect.top };
-          }
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    }
 
-          canvas.onmousedown = (e) => {
-            drawing = true;
-            const pos = getPos(e);
-            lastX = pos.x;
-            lastY = pos.y;
-          };
-          canvas.onmousemove = (e) => {
-            if (!drawing) return;
-            const pos = getPos(e);
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            lastX = pos.x;
-            lastY = pos.y;
-            sigSigned[type] = true;
-          };
-          window.addEventListener("mouseup", () => (drawing = false));
+    // Sự kiện Chuột (Desktop)
+    canvas.onmousedown = (e) => {
+      drawing = true;
+      const pos = getPos(e);
+      lastX = pos.x; lastY = pos.y;
+    };
+    canvas.onmousemove = (e) => {
+      if (!drawing) return;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x; lastY = pos.y;
+      sigSigned[type] = true; // Bật cờ chữ ký hợp lệ
+    };
+    window.addEventListener("mouseup", () => (drawing = false));
 
-          canvas.addEventListener(
-            "touchstart",
-            (e) => {
-              drawing = true;
-              const pos = getPos(e);
-              lastX = pos.x;
-              lastY = pos.y;
-              e.preventDefault();
-            },
-            { passive: false },
-          );
-          canvas.addEventListener(
-            "touchmove",
-            (e) => {
-              if (!drawing) return;
-              const pos = getPos(e);
-              ctx.beginPath();
-              ctx.moveTo(lastX, lastY);
-              ctx.lineTo(pos.x, pos.y);
-              ctx.stroke();
-              lastX = pos.x;
-              lastY = pos.y;
-              sigSigned[type] = true;
-              e.preventDefault();
-            },
-            { passive: false },
-          );
-        });
-      }
+    // Sự kiện Cảm ứng (Mobile / Tablet)
+    canvas.addEventListener("touchstart", (e) => {
+      drawing = true;
+      const pos = getPos(e);
+      lastX = pos.x; lastY = pos.y;
+      sigSigned[type] = true; // Bật cờ ngay khi chạm màn hình
+      e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      if (!drawing) return;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x; lastY = pos.y;
+      sigSigned[type] = true;
+      e.preventDefault();
+    }, { passive: false });
+  });
+}
 
       function resizeSignatureCanvas(canvas, ctx) {
         const rect = canvas.getBoundingClientRect();
