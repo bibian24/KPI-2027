@@ -1,0 +1,1625 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hệ Thống Quản Lý Kỹ Thuật & KPI V2.8 - Cloud Sync</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- FontAwesome Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS Excel Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- html2pdf Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <!-- Firebase SDK v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      .shift-row-a {
+        background-color: #fff1f2 !important;
+      } /* Ca A - Hồng Nhạt */
+      .shift-row-b {
+        background-color: #fefbeb !important;
+      } /* Ca B - Vàng Nhạt */
+      .shift-row-c {
+        background-color: #f0fdf4 !important;
+      } /* Ca C - Xanh Lá Nhạt */
+      .shift-row-n {
+        background-color: #f5f3ff !important;
+      } /* Ca N - Tím Nhạt */
+
+      .shift-separator {
+        border-top: 4px solid #0f172a !important;
+      }
+
+      .tab-active {
+        border-bottom: 3px solid #2563eb;
+        color: #2563eb;
+        font-weight: 800;
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      table textarea {
+        overflow-y: hidden;
+        resize: none;
+        min-height: 0;
+      }
+      table {
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+      }
+      table td,
+      table th {
+        border-right: 1.3px solid #64748b !important;
+        border-bottom: 1.3px solid #64748b !important;
+      }
+      table th:first-child,
+      table td:first-child {
+        border-left: none;
+      }
+      table th,
+      table td {
+        border-top: none;
+      }
+      @media (max-width: 768px) {
+        .sticky-col {
+          position: relative !important;
+          left: 0 !important;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased font-sans">
+    <div
+      id="toast-container"
+      class="fixed top-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none"
+    ></div>
+
+    <!-- Modal Confirm -->
+    <div
+      id="custom-confirm-modal"
+      class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+    >
+      <div class="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+        <div class="flex items-start gap-3">
+          <div class="bg-amber-100 text-amber-600 p-2.5 rounded-2xl">
+            <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+          </div>
+          <div>
+            <h3 id="confirm-title" class="font-bold text-slate-900 text-base">Xác nhận</h3>
+            <p id="confirm-message" class="text-xs text-slate-500 mt-1"></p>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button
+            id="confirm-cancel-btn"
+            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-xl text-slate-600"
+          >
+            Hủy
+          </button>
+          <button
+            id="confirm-ok-btn"
+            class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-xs font-bold rounded-xl text-white"
+          >
+            Xác nhận
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Container -->
+    <div
+      id="login-container"
+      class="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 z-50 p-4 transition-all duration-300"
+    >
+      <div
+        class="bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-md border border-white/20"
+      >
+        <div class="mb-6 flex justify-center flex-col items-center">
+          <div
+            class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-500/30 mb-3 animate-bounce"
+          >
+            <i class="fa-solid fa-helmet-safety text-4xl"></i>
+          </div>
+          <h1 class="text-2xl font-black text-slate-900 tracking-tight">
+            KỸ THUẬT & KPI V2.8
+          </h1>
+          <p class="text-xs text-slate-500 mt-1">
+            Hệ thống Quản lý trực tuyến đám mây (Cloud Firestore)
+          </p>
+          <div
+            id="login-cloud-status-badge"
+            class="mt-3 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 bg-amber-100 text-amber-800"
+          >
+            <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span>ĐANG KHỞI CHẠY HỆ THỐNG...</span>
+          </div>
+        </div>
+
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Thành viên (User)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <i class="fa-solid fa-user-circle"></i>
+              </span>
+              <select
+                id="login-username-select"
+                required
+                class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-bold text-slate-700 transition-all duration-200"
+              ></select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Mật khẩu (Password)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <i class="fa-solid fa-lock"></i>
+              </span>
+              <input
+                type="password"
+                id="login-password-input"
+                required
+                placeholder="Nhập mật khẩu..."
+                class="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-bold text-slate-700 transition-all duration-200"
+              />
+              <button
+                type="button"
+                onclick="toggleLoginPasswordVisibility()"
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+              >
+                <i id="login-pass-toggle-icon" class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button
+              type="submit"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all duration-150"
+            >
+              ĐĂNG NHẬP HỆ THỐNG
+            </button>
+            <div
+              id="login-error-message"
+              class="hidden mt-2 text-sm font-semibold text-rose-600"
+            >
+              Mật khẩu hoặc tên đăng nhập sai
+            </div>
+            <div
+              id="pauseAppToast"
+              class="hidden mt-2 w-full bg-rose-600 text-white py-3 px-4 rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-rose-500/20 text-center"
+            ></div>
+          </div>
+        </form>
+        <div
+          id="login-cloud-error-box"
+          class="hidden mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-1"
+        ></div>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div id="main-workspace" class="hidden flex flex-col min-h-screen">
+      <header
+        class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm px-4 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4"
+      >
+        <div class="flex items-center gap-3">
+          <div class="bg-blue-600 text-white p-2 rounded-xl flex items-center justify-center shadow-md">
+            <i class="fa-solid fa-screwdriver-wrench text-lg"></i>
+          </div>
+          <div>
+            <h2 class="font-extrabold text-lg text-slate-900 tracking-tight flex items-center gap-2">
+              V2.8 PRO MANAGEMENT
+            </h2>
+            <div class="text-[11px] text-slate-400 flex items-center gap-1">
+              <span id="header-user-fullname" class="font-bold text-slate-600">Nạp dữ liệu...</span>
+              <span>(<span id="header-user-role" class="text-blue-600 font-semibold">Vai trò</span>)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <div
+            id="menu-overlay"
+            onclick="closeMenu()"
+            class="fixed inset-0 bg-black/50 opacity-0 invisible transition-all duration-300 z-40 lg:hidden"
+          ></div>
+          <button onclick="toggleMenu()" class="fixed top-[5px] right-[5px] z-50 lg:hidden p-3">
+            <i class="fa-solid fa-bars text-xl"></i>
+          </button>
+
+          <nav
+            id="app-nav"
+            class="fixed top-0 left-0 h-screen w-72 bg-white shadow-2xl p-5 z-50 flex flex-col -translate-x-full transition-transform duration-300 lg:static lg:h-auto lg:w-auto lg:translate-x-0 lg:flex-row lg:bg-slate-100 lg:shadow-none lg:p-1 lg:rounded-xl"
+          >
+            <button
+              onclick="switchTab('weekly-plan')"
+              id="tab-btn-weekly-plan"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-slate-900 transition"
+            >
+              <i class="fa-solid fa-calendar-week text-blue-600"></i>
+              <span>WEEKLY PLAN</span>
+            </button>
+
+            <button
+              onclick="switchTab('backlogs')"
+              id="tab-btn-backlogs"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-slate-900 transition"
+            >
+              <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+              <span>TỒN ĐỌNG / PHÁT SINH</span>
+            </button>
+
+            <button
+              onclick="switchTab('maintenance-forms')"
+              id="tab-btn-maintenance-forms"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-slate-900 transition"
+            >
+              <i class="fa-solid fa-file-invoice text-indigo-600"></i>
+              <span>FORM BẢO TRÌ</span>
+            </button>
+
+            <button
+              onclick="switchTab('kpi-dashboard')"
+              id="tab-btn-kpi-dashboard"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-slate-900 transition"
+            >
+              <i class="fa-solid fa-chart-line text-emerald-600"></i>
+              <span>DASHBOARD KPI</span>
+            </button>
+
+            <button
+              onclick="switchTab('admin-config')"
+              id="tab-btn-admin-config"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-slate-900 transition"
+            >
+              <i class="fa-solid fa-gears text-rose-600"></i>
+              <span>CẤU HÌNH ADMIN</span>
+            </button>
+          </nav>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div
+            id="header-cloud-status-badge"
+            class="px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1.5"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>ONLINE</span>
+          </div>
+
+          <div id="admin-bell-wrapper" class="hidden relative">
+            <button
+              onclick="toggleAdminNotificationDropdown(event)"
+              class="relative text-slate-600 hover:text-blue-600 bg-slate-100 p-2.5 rounded-xl transition duration-200"
+            >
+              <i class="fa-solid fa-bell text-sm"></i>
+              <span
+                id="admin-bell-badge"
+                class="hidden absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce"
+                >0</span
+              >
+            </button>
+            <div
+              id="admin-bell-dropdown"
+              class="hidden absolute right-0 mt-2 bg-white border border-slate-200 shadow-2xl rounded-2xl p-3 z-50 w-[320px] space-y-2 text-left"
+            >
+              <div class="flex justify-between items-center border-b pb-1.5">
+                <span class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  <i class="fa-solid fa-bell text-blue-500"></i> Thông báo bảo trì mới
+                </span>
+                <button
+                  onclick="markAllNotificationsRead(event)"
+                  class="text-[10px] text-blue-600 hover:underline font-bold"
+                >
+                  Đánh dấu đã đọc
+                </button>
+              </div>
+              <div id="admin-bell-list" class="space-y-1.5 max-h-60 overflow-y-auto pr-1"></div>
+            </div>
+          </div>
+
+          <span id="idle-timer" class="text-xs text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
+            <i class="fa-solid fa-hourglass-half"></i> Tự tắt: Không cài
+          </span>
+          <button
+            onclick="logout()"
+            class="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 p-2.5 rounded-xl transition duration-200"
+            title="Đăng xuất"
+          >
+            <i class="fa-solid fa-power-off text-sm"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="flex-grow p-4 lg:p-6 max-w-full overflow-hidden">
+        <!-- SECTION 1: WEEKLY PLAN -->
+        <section id="view-weekly-plan" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-lg font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <i class="fa-solid fa-calendar-days text-blue-600"></i> BẢNG KẾ HOẠCH PHÂN CÔNG TUẦN (WEEKLY PLAN)
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">
+                Cột "Ngày" tự động gộp (rowspan) nếu trùng nhau. Tạo ngày trực kế tiếp hoặc tuần trực mới linh hoạt.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-50 p-1.5 rounded-xl border">
+                <span>Lọc tuần:</span>
+                <select id="week-filter" onchange="changeActiveWeekFilter()" class="bg-white border rounded px-2 py-1 font-bold text-slate-700 outline-none"></select>
+                <button id="delete-week-btn" onclick="deleteCurrentWeek()" title="Xóa tuần đang chọn" class="ml-2 p-1.5 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 text-xs font-bold">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+              <button onclick="addNewWeeklyTaskRow()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Thêm việc cho ngày hiện tại
+              </button>
+              <button onclick="addNewNextDayTaskRow()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-day"></i> Tạo ngày trực kế tiếp
+              </button>
+              <button id="add-week-btn" onclick="createNewNextWeek()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-plus"></i> Tạo tuần trực kế tiếp
+              </button>
+              <button onclick="exportMonthlyReport()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-file-excel"></i> Tải Excel Tuần
+              </button>
+              <button id="visible-task-row-btn" onclick="document.getElementById('hidden-tasks-panel').classList.toggle('hidden'); renderHiddenTasksTable();" class="bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-box-archive"></i> Việc đã ẩn <span id="hidden-tasks-count" class="bg-white/20 rounded-full px-2 text-xs"></span>
+              </button>
+            </div>
+          </div>
+
+          <div id="hidden-tasks-panel" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-3 border-b bg-slate-50 font-bold text-sm">Danh sách công việc đã ẩn</div>
+            <table class="w-full text-left">
+              <thead class="bg-slate-50 text-[11px] uppercase text-slate-400">
+                <tr>
+                  <th class="p-2">Ngày</th>
+                  <th class="p-2">Ca</th>
+                  <th class="p-2">Nhóm</th>
+                  <th class="p-2">Nội dung</th>
+                  <th class="p-2 text-center">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="hidden-tasks-body"></tbody>
+            </table>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+            <div class="overflow-auto w-full max-h-[70vh]">
+              <table class="text-left border-collapse" id="weekly-plan-table">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-400 text-[11px] font-bold tracking-wider uppercase border-b border-slate-200">
+                    <th data-col="0" class="sticky top-0 z-20 bg-slate-50 w-[150px] p-3 text-center font-bold">Ngày</th>
+                    <th data-col="1" class="sticky top-0 z-20 bg-slate-50 w-[150px] p-3 text-center font-bold">Ca làm</th>
+                    <th data-col="2" class="sticky top-0 z-20 bg-slate-50 w-[150px] p-3 text-center font-bold">Nhóm</th>
+                    <th data-col="3" class="sticky top-0 z-20 bg-slate-50 w-[130px] p-3 text-center font-bold">Khu vực</th>
+                    <th data-col="4" class="sticky top-0 z-20 bg-slate-50 w-[200px] p-3 text-center font-bold">Nội dung công việc</th>
+                    <th data-col="5" class="sticky top-0 z-20 bg-slate-50 w-[130px] p-3 text-center font-bold">Minh chứng</th>
+                    <th data-col="6" class="sticky top-0 z-20 bg-slate-50 w-[150px] p-3 text-center font-bold">Form bảo trì</th>
+                    <th data-col="7" class="sticky top-0 z-20 bg-slate-50 w-[160px] p-3 text-center font-bold">Người thực hiện</th>
+                    <th data-col="8" class="sticky top-0 z-20 bg-slate-50 w-[140px] p-3 text-center font-bold">Tiến độ KPI</th>
+                    <th data-col="9" class="sticky top-0 z-20 bg-slate-50 w-[180px] p-3 text-center font-bold">Ghi chú & Sheet</th>
+                    <th data-col="10" class="sticky top-0 z-20 bg-slate-50 w-[100px] p-3 text-center font-bold">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="weekly-plan-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 2: BACKLOGS -->
+        <section id="view-backlogs" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-lg font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> CÔNG VIỆC TỒN ĐỌNG / PHÁT SINH
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">
+                Các công việc bàn giao chưa hoàn thành hoặc cần phân bổ kiểm tra bổ sung.
+              </p>
+            </div>
+            <div class="flex gap-2">
+              <button id="add-backlog-btn" onclick="createNewBacklogRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Tạo dòng phát sinh mới
+              </button>
+              <button onclick="exportBacklogsReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-file-excel"></i> Xuất Tồn Đọng Excel
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto w-full">
+              <table class="w-full text-left border-collapse table-fixed min-w-[1300px]">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-400 text-[11px] font-bold tracking-wider uppercase border-b border-slate-200">
+                    <th class="w-[110px] p-3 text-center font-bold">Ngày</th>
+                    <th class="w-[100px] p-3 font-bold">Nhóm</th>
+                    <th class="w-[130px] p-3 font-bold">Khu vực</th>
+                    <th class="w-[280px] p-3 font-bold">Nội dung công việc</th>
+                    <th class="w-[120px] p-3 text-center font-bold">Ảnh</th>
+                    <th class="w-[160px] p-3 font-bold">Người thực hiện cũ</th>
+                    <th class="w-[110px] p-3 text-center font-bold">Trạng thái</th>
+                    <th class="w-[250px] p-3 font-bold text-indigo-600">Phân việc lại</th>
+                    <th class="w-[150px] p-3 font-bold">Ghi chú</th>
+                    <th class="w-[80px] p-3 text-center font-bold">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="backlogs-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 3: MAINTENANCE FORMS -->
+        <section id="view-maintenance-forms" class="hidden space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-1 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4 flex flex-col">
+              <div class="flex justify-between items-center border-b pb-2">
+                <h4 class="font-bold text-slate-900 flex items-center gap-2 text-sm">
+                  <i class="fa-solid fa-folder-open text-amber-500"></i> THƯ MỤC HỆ THỐNG
+                </h4>
+                <div class="flex gap-1">
+                  <button onclick="createFolder('root')" class="bg-slate-100 hover:bg-slate-200 p-1.5 rounded-lg text-slate-600 font-bold text-[10px]" title="Thêm folder cha">
+                    <i class="fa-solid fa-folder-plus text-amber-600"></i> Cha
+                  </button>
+                  <button onclick="createSubFolder()" class="bg-slate-100 hover:bg-slate-200 p-1.5 rounded-lg text-slate-600 font-bold text-[10px]" title="Thêm folder con">
+                    <i class="fa-solid fa-folder-plus text-amber-600"></i> Con
+                  </button>
+                </div>
+              </div>
+              <div class="space-y-1 overflow-y-auto max-h-[500px]" id="folders-tree-container"></div>
+            </div>
+
+            <div class="lg:col-span-3 space-y-6">
+              <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+                <div class="xl:col-span-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                  <div class="flex justify-between items-center border-b pb-2">
+                    <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                      <i class="fa-solid fa-pen-ruler text-indigo-600"></i> Thiết kế Form Bảo Trì (V2.8)
+                    </h3>
+                    <span class="text-[10px] text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-full">Tùy biến cao</span>
+                  </div>
+                  <div class="space-y-3 text-xs">
+                    <div>
+                      <label class="block text-[10px] font-bold text-slate-400 mb-0.5 uppercase">Tên Form hệ thống</label>
+                      <input type="text" id="new-template-name" placeholder="Ví dụ: COOLING TOWER, MÁY PHÁT ĐIỆN" class="w-full p-2 border rounded-xl bg-slate-50 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold text-slate-400 mb-0.5 uppercase">Thư Mục Chỉ Định Lưu Trữ</label>
+                      <select id="new-template-system" onchange="updateTemplateStorageFolderOptions()" class="w-full p-2 border rounded-xl bg-slate-50 font-bold text-slate-700"></select>
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-bold text-slate-400 mb-0.5 uppercase">Thư Mục Con Lưu Trữ</label>
+                      <select id="new-template-child-system" class="w-full p-2 border rounded-xl bg-slate-50 font-bold text-slate-700">
+                        <option value="">Không chọn (dùng thư mục cha)</option>
+                      </select>
+                    </div>
+
+                    <div class="border-t pt-3 space-y-3">
+                      <span class="block text-[10px] font-black text-indigo-600 uppercase tracking-wider">HẠNG MỤC KIỂM TRA & CÂU HỎI</span>
+                      <div id="new-template-questions" class="space-y-4 max-h-96 overflow-y-auto pr-1"></div>
+
+                      <button onclick="addNewQuestionInput()" class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-800 text-xs font-bold rounded-xl border border-dashed border-indigo-200 flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-plus-circle"></i> Thêm bước kiểm tra mới
+                      </button>
+                    </div>
+                    <button onclick="saveFormTemplate()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-xs shadow-md transition mt-2">
+                      TẠO BIỂU MẪU MỚI
+                    </button>
+                  </div>
+                </div>
+
+                <div class="xl:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b pb-2">
+                      <i class="fa-solid fa-list-check text-slate-600"></i> Thư viện biểu mẫu sẵn có
+                    </h3>
+                    <div id="templates-list" class="space-y-3 max-h-[500px] overflow-y-auto mt-2 pr-1"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex justify-between items-center border-b pb-2">
+                  <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open text-indigo-600"></i> Các phiếu đã nộp trong thư mục:
+                    <span id="current-selected-folder-title" class="text-blue-600 font-black">Hệ điện</span>
+                  </h3>
+                  <div class="flex items-center gap-3">
+                    <select onchange="renderSubmittedFormsList(this.value)" id="filterFormSubmitOfMonth" class="px-4 py-2 border border-slate-300 rounded-xl bg-white text-slate-700 font-semibold text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                      <option value="">📅 Lọc form theo tháng</option>
+                      <option value="1">Tháng 1</option>
+                      <option value="2">Tháng 2</option>
+                      <option value="3">Tháng 3</option>
+                      <option value="4">Tháng 4</option>
+                      <option value="5">Tháng 5</option>
+                      <option value="6">Tháng 6</option>
+                      <option value="7">Tháng 7</option>
+                      <option value="8">Tháng 8</option>
+                      <option value="9">Tháng 9</option>
+                      <option value="10">Tháng 10</option>
+                      <option value="11">Tháng 11</option>
+                      <option value="12">Tháng 12</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1" id="submitted-forms-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 4: KPI DASHBOARD -->
+        <section id="view-kpi-dashboard" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-lg font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <i class="fa-solid fa-chart-line text-emerald-600"></i> THÀNH TÍCH VÀ ĐIỂM SỐ KPI KỸ THUẬT
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">
+                Đánh giá xếp hạng chuẩn xác: <strong>70% Khối lượng công việc (KPI %)</strong> + <strong>30% Điểm thái độ chi tiết</strong>.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="kpi-month-filter" onchange="renderKpiDashboard()" class="bg-slate-50 border rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none">
+                <option value="2026-06">Tháng 06/2026</option>
+                <option value="2026-05">Tháng 05/2026</option>
+              </select>
+              <button onclick="exportAdvancedSummaryExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-file-excel"></i> Tải Bảng Vinh Danh Excel
+              </button>
+            </div>
+          </div>
+
+          <!-- BẢNG VINH DANH CHUYÊN SÂU -->
+          <div class="bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 p-6 rounded-3xl text-white shadow-xl space-y-4">
+            <h2 class="text-base font-extrabold tracking-wider text-center flex items-center justify-center gap-2">
+              <i class="fa-solid fa-trophy text-2xl animate-bounce text-yellow-200"></i>
+              BẢNG XẾP HẠNG THÀNH TÍCH VÀNG - NHÂN VIÊN XUẤT SẮC THÁNG
+              <i class="fa-solid fa-medal text-2xl text-yellow-200"></i>
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center space-y-2">
+                <div class="text-[10px] font-black tracking-widest text-yellow-200 uppercase">DUTY ENGINEER TIÊU BIỂU</div>
+                <div class="text-4xl text-yellow-300"><i class="fa-solid fa-crown"></i></div>
+                <div id="out-duty-name" class="font-extrabold text-base">-</div>
+                <div id="out-duty-score" class="text-xs text-white/90 font-medium">Đang tính điểm...</div>
+              </div>
+              <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center space-y-2">
+                <div class="text-[10px] font-black tracking-widest text-yellow-200 uppercase">TECHNICIAN TIÊU BIỂU</div>
+                <div class="text-4xl text-yellow-300"><i class="fa-solid fa-star"></i></div>
+                <div id="out-tech-name" class="font-extrabold text-base">-</div>
+                <div id="out-tech-score" class="text-xs text-white/90 font-medium">Đang tính điểm...</div>
+              </div>
+              <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center space-y-2">
+                <div class="text-[10px] font-black tracking-widest text-yellow-200 uppercase">CARPENTER TIÊU BIỂU</div>
+                <div class="text-4xl text-yellow-300"><i class="fa-solid fa-award"></i></div>
+                <div id="out-carp-name" class="font-extrabold text-base">-</div>
+                <div id="out-carp-score" class="text-xs text-white/90 font-medium">Đang tính điểm...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-[340px]">
+              <h4 class="font-extrabold text-xs text-slate-500 uppercase tracking-wider">DUTY ENGINEER RANKING CHART</h4>
+              <div class="relative flex-grow h-64 mt-2"><canvas id="kpiDutyChart"></canvas></div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-[340px]">
+              <h4 class="font-extrabold text-xs text-slate-500 uppercase tracking-wider">TECHNICIAN RANKING CHART</h4>
+              <div class="relative flex-grow h-64 mt-2"><canvas id="kpiTechChart"></canvas></div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-[340px]">
+              <h4 class="font-extrabold text-xs text-slate-500 uppercase tracking-wider">CARPENTER RANKING CHART</h4>
+              <div class="relative flex-grow h-64 mt-2"><canvas id="kpiCarpenterChart"></canvas></div>
+            </div>
+          </div>
+
+          <!-- Đánh giá thái độ & xếp hạng 70/30 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+              <h3 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-clipboard-user text-blue-600"></i> Đánh giá thái độ & Xếp hạng (70% Khối lượng + 30% Thái độ)
+              </h3>
+              <div class="flex gap-2">
+                <button onclick="downloadKpiSheetSum()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1">
+                  <i class="fa-solid fa-file-excel"></i> Xuất Excel KPI Tổng Hợp
+                </button>
+                <button onclick="downloadKpiSheetIndividual()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1">
+                  <i class="fa-solid fa-user-tag"></i> Xuất Excel KPI Cá Nhân
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div class="space-y-3">
+                <span class="block text-xs font-black text-indigo-700 uppercase bg-indigo-50 px-2.5 py-1 rounded-lg">Duty Engineer</span>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-[11px] border-collapse min-w-[340px]">
+                    <thead>
+                      <tr class="bg-slate-50 border-b">
+                        <th class="p-2">Họ & Tên</th>
+                        <th class="p-2 text-center font-bold">KPI (70%)</th>
+                        <th class="p-2 text-center font-bold">Thái độ (30%)</th>
+                        <th class="p-2 text-center font-bold">Điểm & Xếp Hạng</th>
+                      </tr>
+                    </thead>
+                    <tbody id="kpi-group-duty"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <span class="block text-xs font-black text-emerald-700 uppercase bg-emerald-50 px-2.5 py-1 rounded-lg">Technician</span>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-[11px] border-collapse min-w-[340px]">
+                    <thead>
+                      <tr class="bg-slate-50 border-b">
+                        <th class="p-2">Họ & Tên</th>
+                        <th class="p-2 text-center font-bold">KPI (70%)</th>
+                        <th class="p-2 text-center font-bold">Thái độ (30%)</th>
+                        <th class="p-2 text-center font-bold">Điểm & Xếp Hạng</th>
+                      </tr>
+                    </thead>
+                    <tbody id="kpi-group-tech"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <span class="block text-xs font-black text-rose-700 uppercase bg-rose-50 px-2.5 py-1 rounded-lg">Carpenter</span>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-[11px] border-collapse min-w-[340px]">
+                    <thead>
+                      <tr class="bg-slate-50 border-b">
+                        <th class="p-2">Họ & Tên</th>
+                        <th class="p-2 text-center font-bold">KPI (70%)</th>
+                        <th class="p-2 text-center font-bold">Thái độ (30%)</th>
+                        <th class="p-2 text-center font-bold">Điểm & Xếp Hạng</th>
+                      </tr>
+                    </thead>
+                    <tbody id="kpi-group-carpenter"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 5: ADMIN CONFIG -->
+        <section id="view-admin-config" class="hidden space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <h2 class="font-extrabold text-slate-900 text-sm flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-sliders text-blue-600"></i> Thiết lập chức năng hệ thống
+              </h2>
+              <div class="space-y-3 text-xs">
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tự động ngắt phiên làm việc</label>
+                  <select id="admin-auto-off" onchange="updateSystemSettings()" class="w-full p-2 border rounded-xl bg-slate-50 font-bold">
+                    <option value="never">Không bao giờ</option>
+                    <option value="30m">Sau 30 phút</option>
+                    <option value="1h">Sau 1 tiếng</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Thông báo nộp form bảo trì</label>
+                  <select id="admin-notify-on-submit" onchange="updateSystemSettings()" class="w-full p-2 border rounded-xl bg-slate-50 font-bold">
+                    <option value="on">Bật (Báo lên màn hình ngay)</option>
+                    <option value="off">Tắt</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="border-t pt-3 space-y-2">
+                <span class="block text-[10px] font-bold text-slate-400 uppercase">Ẩn / Hiện chức năng với nhân viên</span>
+                <div class="flex flex-col gap-2 text-xs font-semibold">
+                  <label class="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-2 rounded-xl border">
+                    <input type="checkbox" id="perm-kpi" onchange="updateSystemSettings()" class="rounded text-blue-600" />
+                    <span>Cho phép nhân viên xem TAB KPI</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-2 rounded-xl border">
+                    <input type="checkbox" id="perm-forms" onchange="updateSystemSettings()" class="rounded text-blue-600" />
+                    <span>Cho phép nhân viên xem TAB FORM BẢO TRÌ</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="border-t pt-3 space-y-2 text-xs">
+                <span class="block text-[10px] font-bold text-slate-400 uppercase">Vùng khôi phục/Bảo trì dữ liệu</span>
+                <div class="flex flex-wrap gap-2 sm:gap-3 items-center justify-start">
+                  <button onclick="pauseApplication()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 px-3.5 rounded-lg transition-colors">Tạm dừng bảo trì</button>
+                  <button onclick="resetApplicationStorage()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 px-3.5 rounded-lg transition-colors">Khôi phục gốc</button>
+                  <button onclick="backupSystem()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-3.5 rounded-lg flex items-center gap-1.5 transition-colors">
+                    <i class="fa-solid fa-download"></i> Sao lưu
+                  </button>
+                  <button onclick="document.getElementById('restore-backup-input').click()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2 px-3.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors">
+                    <i class="fa-solid fa-upload"></i> Khôi phục
+                  </button>
+                  <input id="restore-backup-input" type="file" accept=".json" hidden onchange="restoreBackup(this)" />
+                </div>
+              </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div class="flex justify-between items-center border-b pb-2">
+                <h2 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                  <i class="fa-solid fa-users-gear text-emerald-600"></i> Quản lý danh sách tài khoản nhân viên
+                </h2>
+                <button onclick="openAddMemberModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1">
+                  <i class="fa-solid fa-user-plus"></i> Thêm Nhân Viên Mới
+                </button>
+              </div>
+              <div class="overflow-y-auto max-h-[300px]">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-200">
+                      <th class="p-2">Họ & Tên</th>
+                      <th class="p-2">Chức vụ / Nhóm</th>
+                      <th class="p-2">Vai trò</th>
+                      <th class="p-2">Đổi MK</th>
+                      <th class="p-2 text-center">Xóa</th>
+                    </tr>
+                  </thead>
+                  <tbody id="members-list-table"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      /* Image Compression Helper */
+      function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.6) {
+        return new Promise((resolve) => {
+          if (!file || !file.type.startsWith('image/')) {
+            resolve(null);
+            return;
+          }
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height) {
+                if (width > maxWidth) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                }
+              } else {
+                if (maxHeight && height > maxHeight) {
+                  width = Math.round((width * maxHeight) / height);
+                  height = maxHeight;
+                }
+              }
+
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = () => resolve(event.target.result);
+          };
+          reader.onerror = () => resolve(null);
+        });
+      }
+
+      function showCustomToast(message, type = "info") {
+        const container = document.getElementById("toast-container");
+        if (!container) return;
+        const toast = document.createElement("div");
+        const bg =
+          type === "success"
+            ? "bg-emerald-600"
+            : type === "error"
+            ? "bg-rose-600"
+            : type === "warning"
+            ? "bg-amber-500"
+            : "bg-blue-600";
+        toast.className = `${bg} text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-bold flex items-center gap-2 transition-all duration-300 pointer-events-auto transform translate-x-full`;
+        toast.innerHTML = `<i class="fa-solid fa-circle-info"></i><span>${message}</span>`;
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.remove("translate-x-full"));
+        setTimeout(() => {
+          toast.classList.add("translate-x-full");
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      function showConfirm(title, message, onOk) {
+        const modal = document.getElementById("custom-confirm-modal");
+        document.getElementById("confirm-title").innerText = title;
+        document.getElementById("confirm-message").innerText = message;
+        modal.classList.remove("hidden");
+
+        const okBtn = document.getElementById("confirm-ok-btn");
+        const cancelBtn = document.getElementById("confirm-cancel-btn");
+
+        const cleanUp = () => {
+          modal.classList.add("hidden");
+          okBtn.onclick = null;
+          cancelBtn.onclick = null;
+        };
+
+        okBtn.onclick = () => {
+          cleanUp();
+          if (onOk) onOk();
+        };
+        cancelBtn.onclick = cleanUp;
+      }
+
+      const predefinedSystems = [
+        "Hệ điện", "Hệ lạnh", "Hệ STP", "Hệ AV", "Hệ PCCC",
+        "Hệ Car parking", "Hệ Nước", "Hạ Tầng", "Hệ Thiết Bị Bếp",
+        "Hệ Thiết Bị Phòng GYM", "Hệ Quạt", "Hệ BMS", "Hệ Inavate",
+      ];
+
+      const defaultMembers = [
+        {
+          id: "mem-admin",
+          fullname: "Admin Hệ Thống",
+          user: "admin",
+          pass: "admin123",
+          role: "Admin",
+          title: "Duty Engineer",
+          attitudeGrades: { supervisor: 5, attendance: 5, initiative: 5, feedback: 5, professionalism: 5 },
+          note: "",
+        },
+        {
+          id: "mem-01",
+          fullname: "Tạ Đức Long",
+          user: "longtd",
+          pass: "123",
+          role: "Thành viên",
+          title: "Duty Engineer",
+          attitudeGrades: { supervisor: 5, attendance: 4, initiative: 5, feedback: 5, professionalism: 5 },
+          note: "",
+        },
+        {
+          id: "mem-02",
+          fullname: "Võ Tấn Đạt",
+          user: "datvt",
+          pass: "123",
+          role: "Thành viên",
+          title: "Duty Engineer",
+          attitudeGrades: { supervisor: 4.8, attendance: 5, initiative: 4, feedback: 4.5, professionalism: 5 },
+          note: "",
+        },
+        {
+          id: "mem-03",
+          fullname: "Nguyễn Anh Duy",
+          user: "duyna",
+          pass: "123",
+          role: "Thành viên",
+          title: "Technician",
+          attitudeGrades: { supervisor: 5, attendance: 5, initiative: 5, feedback: 4.8, professionalism: 5 },
+          note: "",
+        },
+      ];
+
+      const defaultTemplates = [
+        {
+          id: "tmpl-cooling",
+          name: "COOLING TOWER",
+          system: "Hệ lạnh",
+          code: "CT-01",
+          questions: [
+            {
+              question: "Kiểm tra độ rung và tiếng ồn tháp giải nhiệt",
+              description: "Đảm bảo quạt quay êm, không va chạm thành tháp",
+              required: true,
+              type: "option",
+              options: ["YES", "NO", "N/A"],
+            },
+          ],
+        },
+      ];
+
+      let state = {
+        currentUser: null,
+        currentRole: "Thành viên",
+        members: [],
+        tasks: [],
+        backlogs: [],
+        templates: [],
+        formSubmissions: [],
+        folders: [],
+        currentFolder: "Hệ điện",
+        auditLogs: [],
+        weeks: [],
+        adminNotifications: [],
+        settings: {
+          autoOff: "never",
+          notifyOnSubmit: "on",
+          visibleTabs: { kpi: true, forms: true },
+          systemPause: false,
+        },
+      };
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyD5idllCVzyDn9eOPlNJQDnuWjErjRkNjg",
+        authDomain: "engineer-kpi.firebaseapp.com",
+        projectId: "engineer-kpi",
+        storageBucket: "engineer-kpi.firebasestorage.app",
+        messagingSenderId: "935375022936",
+        appId: "1:935375022936:web:7e4d8fb4b1e9c326d4532d",
+      };
+
+      let db = null;
+      let isCloudActive = false;
+      let activeWeekFilterVal = "Tuần 23 (01/06 - 07/06/2026)";
+      let idleTimerId = null;
+
+      function loadKeepLoggedIn() {
+        const keepId = sessionStorage.getItem("kpi_app_current_user_id");
+        if (!keepId) return;
+        const found = state.members.find((m) => String(m.id) === String(keepId));
+        if (found) {
+          state.currentUser = found;
+          state.currentRole = found.role || "Thành viên";
+          document.getElementById("login-container")?.classList.add("hidden");
+          document.getElementById("main-workspace")?.classList.remove("hidden");
+          const fullnameEl = document.getElementById("header-user-fullname");
+          const roleEl = document.getElementById("header-user-role");
+          if (fullnameEl) fullnameEl.innerText = found.fullname;
+          if (roleEl) roleEl.innerText = `${found.role} - ${found.title || ""}`;
+        }
+      }
+
+      function renderFolderTree() {
+        const container = document.getElementById("folders-tree-container");
+        if (!container) return;
+        container.innerHTML = "";
+        const allFolders = [
+          ...predefinedSystems.map((name) => ({ name, parent: "root", isDefault: true })),
+          ...(state.folders || []),
+        ];
+
+        allFolders.filter((f) => f.parent === "root").forEach((f) => {
+          const div = document.createElement("div");
+          div.className = `p-2 rounded-xl text-xs font-bold cursor-pointer flex justify-between items-center ${state.currentFolder === f.name ? "bg-amber-100 text-amber-900" : "hover:bg-slate-100"}`;
+          div.innerHTML = `<span><i class="fa-solid fa-folder text-amber-500 mr-2"></i>${f.name}</span>`;
+          div.onclick = () => {
+            state.currentFolder = f.name;
+            document.getElementById("current-selected-folder-title").innerText = f.name;
+            renderFolderTree();
+            renderSubmittedFormsList();
+          };
+          container.appendChild(div);
+        });
+      }
+
+      function renderSubmittedFormsList(month = "") {
+        const container = document.getElementById("submitted-forms-list");
+        if (!container) return;
+        container.innerHTML = "";
+
+        let list = (state.formSubmissions || []).filter((s) => s.system === state.currentFolder);
+        if (month) {
+          list = list.filter((s) => s.dateSubmitted && s.dateSubmitted.includes(`/${month}/`));
+        }
+
+        if (list.length === 0) {
+          container.innerHTML = `<div class="col-span-full text-center text-slate-400 py-6 text-xs">Chưa có phiếu bảo trì nào được nộp.</div>`;
+          return;
+        }
+
+        list.forEach((sub) => {
+          const card = document.createElement("div");
+          card.className = "p-3 bg-slate-50 border rounded-2xl flex flex-col justify-between space-y-2";
+          card.innerHTML = `
+            <div>
+              <div class="font-extrabold text-slate-800 text-xs">${sub.templateName || "Form"}</div>
+              <div class="text-[10px] text-slate-400">Ngày: ${sub.dateSubmitted || "-"}</div>
+              <div class="text-[10px] text-slate-500">Thực hiện: ${sub.techs ? sub.techs.join(", ") : "-"}</div>
+            </div>
+            <div class="flex justify-end gap-1.5 pt-1 border-t">
+              <button onclick="downloadFormPDF('${sub.id}')" class="px-2 py-1 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-lg hover:bg-rose-200"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      async function initFirebase() {
+        try {
+          if (typeof firebase !== "undefined") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            try {
+              await db.enablePersistence({ synchronizeTabs: true });
+            } catch (err) {
+              console.warn("Firestore persistence notice:", err.code);
+            }
+            isCloudActive = true;
+            updateCloudStatus("connected");
+            setupRealtimeSync();
+          } else {
+            loadLocalFallback();
+          }
+        } catch (e) {
+          console.error("Firebase init error: ", e);
+          updateCloudStatus("error", e.message);
+          loadLocalFallback();
+        }
+      }
+
+      function updateCloudStatus(status, msg) {
+        const badge = document.getElementById("header-cloud-status-badge");
+        const loginBadge = document.getElementById("login-cloud-status-badge");
+        if (status === "connected") {
+          if (badge) badge.className = "px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-100 text-emerald-800 flex items-center gap-1.5";
+          if (badge) badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>ONLINE</span>`;
+          if (loginBadge) loginBadge.className = "mt-3 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
+          if (loginBadge) loginBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>ĐÃ KẾT NỐI CLOUD</span>`;
+        } else {
+          if (badge) badge.className = "px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-100 text-amber-800 flex items-center gap-1.5";
+          if (badge) badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>OFFLINE</span>`;
+        }
+      }
+
+      function setupRealtimeSync() {
+        if (!db) return;
+        const stateDocRef = db.collection("system_kpi_v28").doc("data_state");
+        stateDocRef.onSnapshot((docSnap) => {
+          if (docSnap.exists) {
+            const cloudData = docSnap.data();
+            if (cloudData && cloudData.members && cloudData.members.length > 0) {
+              state.members = cloudData.members || [];
+              state.tasks = cloudData.tasks || [];
+              state.backlogs = cloudData.backlogs || [];
+              state.templates = cloudData.templates || [];
+              state.folders = cloudData.folders || [];
+              state.auditLogs = cloudData.auditLogs || [];
+              state.weeks = cloudData.weeks || [];
+              state.adminNotifications = cloudData.adminNotifications || [];
+              state.settings = cloudData.settings || state.settings;
+            } else {
+              initializeDefaultState();
+            }
+            populateUserDropdown();
+            setupWeeklyFilters();
+            if (typeof loadKeepLoggedIn === "function") loadKeepLoggedIn();
+            refreshUI();
+          } else {
+            initializeDefaultState();
+            populateUserDropdown();
+            setupWeeklyFilters();
+          }
+        });
+
+        db.collection("form_submissions").onSnapshot((snapshot) => {
+          const list = [];
+          snapshot.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
+          state.formSubmissions = list;
+          if (typeof renderSubmittedFormsList === "function") renderSubmittedFormsList();
+          if (typeof renderFolderTree === "function") renderFolderTree();
+        });
+      }
+
+      function initializeDefaultState() {
+        state.members = JSON.parse(JSON.stringify(defaultMembers));
+        state.templates = JSON.parse(JSON.stringify(defaultTemplates));
+        state.tasks = [];
+        state.weeks = ["Tuần 23 (01/06 - 07/06/2026)", "Tuần 24 (08/06 - 14/06/2026)"];
+      }
+
+      function loadLocalFallback() {
+        const local = localStorage.getItem("kpi_app_state_v28");
+        if (local) {
+          try { Object.assign(state, JSON.parse(local)); } catch (e) { initializeDefaultState(); }
+        } else {
+          initializeDefaultState();
+        }
+        populateUserDropdown();
+        setupWeeklyFilters();
+        if (typeof loadKeepLoggedIn === "function") loadKeepLoggedIn();
+        refreshUI();
+      }
+
+      async function saveState() {
+        if (state.auditLogs && state.auditLogs.length > 50) {
+          state.auditLogs = state.auditLogs.slice(0, 50);
+        }
+        try {
+          localStorage.setItem("kpi_app_state_v28", JSON.stringify({ ...state, currentUser: null }));
+        } catch (e) {
+          console.warn("Storage quota warning");
+        }
+        if (isCloudActive && db) {
+          try {
+            await db.collection("system_kpi_v28").doc("data_state").set({
+              members: state.members || [],
+              tasks: state.tasks || [],
+              backlogs: state.backlogs || [],
+              templates: state.templates || [],
+              folders: state.folders || [],
+              auditLogs: state.auditLogs || [],
+              weeks: state.weeks || [],
+              adminNotifications: state.adminNotifications || [],
+              settings: state.settings || {},
+            });
+          } catch (e) {
+            console.error("Cloud save failed:", e);
+          }
+        }
+      }
+
+      function logAction(action, details) {
+        const entry = {
+          id: "log-" + Date.now(),
+          timestamp: new Date().toLocaleString("vi-VN"),
+          user: state.currentUser ? state.currentUser.fullname : "Hệ thống",
+          action: action,
+          details: details,
+        };
+        state.auditLogs.unshift(entry);
+        saveState();
+      }
+
+      function populateUserDropdown() {
+        const select = document.getElementById("login-username-select");
+        if (!select) return;
+        select.innerHTML = '<option value="">-- Chọn tài khoản --</option>';
+        state.members.forEach((m) => {
+          select.innerHTML += `<option value="${m.user}">${m.fullname} (${m.title})</option>`;
+        });
+      }
+
+      function setupWeeklyFilters() {
+        const select = document.getElementById("week-filter");
+        if (!select) return;
+        select.innerHTML = "";
+        if (!state.weeks || state.weeks.length === 0) {
+          select.innerHTML = '<option value="">Chưa có tuần</option>';
+          return;
+        }
+        state.weeks.forEach((w) => {
+          select.innerHTML += `<option value="${w}" ${w === activeWeekFilterVal ? "selected" : ""}>${w}</option>`;
+        });
+      }
+
+      function changeActiveWeekFilter() {
+        const select = document.getElementById("week-filter");
+        if (select) {
+          activeWeekFilterVal = select.value;
+          renderWeeklyPlanTable();
+        }
+      }
+
+      function deleteCurrentWeek() {
+        showConfirm("Xác nhận xóa tuần", `Bạn có chắc muốn xóa ${activeWeekFilterVal}?`, () => {
+          state.weeks = state.weeks.filter((w) => w !== activeWeekFilterVal);
+          state.tasks = state.tasks.filter((t) => t.weekNum !== activeWeekFilterVal);
+          activeWeekFilterVal = state.weeks[0] || "";
+          saveState();
+          setupWeeklyFilters();
+          renderWeeklyPlanTable();
+          showCustomToast("Đã xóa tuần làm việc!", "info");
+        });
+      }
+
+      function refreshUI() {
+        renderWeeklyPlanTable();
+        renderBacklogsTable();
+        renderFolderTree();
+        renderSubmittedFormsList();
+        renderKpiDashboard();
+      }
+
+      function switchTab(tabId) {
+        sessionStorage.setItem("activeTab", tabId);
+        ["weekly-plan", "backlogs", "maintenance-forms", "kpi-dashboard", "admin-config"].forEach((v) => {
+          const el = document.getElementById(`view-${v}`);
+          const btn = document.getElementById(`tab-btn-${v}`);
+          if (el) el.classList.add("hidden");
+          if (btn) btn.classList.remove("tab-active", "bg-white", "shadow-sm", "text-slate-900");
+        });
+
+        const activeView = document.getElementById(`view-${tabId}`);
+        const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+        if (activeView) activeView.classList.remove("hidden");
+        if (activeBtn) activeBtn.classList.add("tab-active", "bg-white", "shadow-sm", "text-slate-900");
+
+        if (tabId === "weekly-plan") renderWeeklyPlanTable();
+        if (tabId === "backlogs") renderBacklogsTable();
+        if (tabId === "maintenance-forms") { renderFolderTree(); renderSubmittedFormsList(); }
+        if (tabId === "kpi-dashboard") renderKpiDashboard();
+      }
+
+      function renderWeeklyPlanTable() {
+        const body = document.getElementById("weekly-plan-table-body");
+        if (!body) return;
+        body.innerHTML = "";
+
+        const filteredTasks = (state.tasks || []).filter((t) => t.weekNum === activeWeekFilterVal && !t.hidden);
+        if (filteredTasks.length === 0) {
+          body.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400 font-semibold text-xs">Không có công việc nào trong tuần này.</td></tr>`;
+          return;
+        }
+
+        filteredTasks.forEach((task) => {
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-50 transition text-xs border-b border-slate-200";
+          tr.innerHTML = `
+            <td class="p-2 text-center font-bold">${task.date || "-"}</td>
+            <td class="p-2 text-center font-bold">${task.shift || "Chưa chọn"}</td>
+            <td class="p-2 font-bold">${task.group || "Bảo Trì"}</td>
+            <td class="p-2">${task.area || ""}</td>
+            <td class="p-2 font-bold">${task.content || ""}</td>
+            <td class="p-2 text-center">
+              <label class="bg-slate-100 p-1.5 rounded cursor-pointer text-slate-600 hover:bg-slate-200">
+                <i class="fa-solid fa-camera"></i>
+                <input type="file" accept="image/*" class="hidden" onchange="uploadTaskPhoto('${task.id}', this)">
+              </label>
+            </td>
+            <td class="p-2 text-center text-slate-500">${task.formTemplateId ? "Có form" : "Không"}</td>
+            <td class="p-2 font-bold">${task.assignees ? task.assignees.join(", ") : "Chưa giao"}</td>
+            <td class="p-2 text-center">
+              <select onchange="updateTaskProgress('${task.id}', this.value)" class="p-1 border rounded font-bold text-[11px] ${task.progress === 'Hoàn thành' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                <option value="Đang thực hiện" ${task.progress === 'Đang thực hiện' ? 'selected' : ''}>Đang thực hiện</option>
+                <option value="Hoàn thành" ${task.progress === 'Hoàn thành' ? 'selected' : ''}>Hoàn thành</option>
+                <option value="Làm lại" ${task.progress === 'Làm lại' ? 'selected' : ''}>Làm lại</option>
+                <option value="Bàn giao" ${task.progress === 'Bàn giao' ? 'selected' : ''}>Bàn giao</option>
+              </select>
+            </td>
+            <td class="p-2">${task.note || ""}</td>
+            <td class="p-2 text-center">
+              <button onclick="deleteTaskRow('${task.id}')" class="text-rose-600 hover:text-rose-800"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+
+      async function uploadTaskPhoto(taskId, input) {
+        if (input.files && input.files[0]) {
+          const compressed = await compressImage(input.files[0], 800, 800, 0.6);
+          if (compressed) {
+            const t = state.tasks.find((x) => x.id === taskId);
+            if (t) {
+              if (!t.photos) t.photos = [];
+              t.photos.push(compressed);
+              await saveState();
+              renderWeeklyPlanTable();
+              showCustomToast("Đã tải ảnh thành công!", "success");
+            }
+          }
+          input.value = "";
+        }
+      }
+
+      function updateTaskProgress(id, val) {
+        const t = state.tasks.find((x) => x.id === id);
+        if (t) {
+          t.progress = val;
+          saveState();
+          renderWeeklyPlanTable();
+          renderKpiDashboard();
+        }
+      }
+
+      function deleteTaskRow(id) {
+        showConfirm("Xóa dòng", "Bạn có chắc muốn xóa công việc này?", () => {
+          state.tasks = state.tasks.filter((x) => x.id !== id);
+          saveState();
+          renderWeeklyPlanTable();
+        });
+      }
+
+      function addNewWeeklyTaskRow() {
+        const newTask = {
+          id: "task-" + Date.now(),
+          weekNum: activeWeekFilterVal,
+          date: new Date().toISOString().slice(0, 10),
+          shift: "Ca A",
+          group: "Bảo Trì",
+          area: "",
+          content: "",
+          assignees: [],
+          progress: "Đang thực hiện",
+          photos: [],
+          note: "",
+        };
+        state.tasks.push(newTask);
+        saveState();
+        renderWeeklyPlanTable();
+      }
+
+      function createNewNextWeek() {
+        const nextWeekName = `Tuần ${state.weeks.length + 23} (Tự động)`;
+        state.weeks.push(nextWeekName);
+        activeWeekFilterVal = nextWeekName;
+        saveState();
+        setupWeeklyFilters();
+        renderWeeklyPlanTable();
+      }
+
+      function renderBacklogsTable() {
+        const body = document.getElementById("backlogs-table-body");
+        if (!body) return;
+        body.innerHTML = "";
+
+        if (!state.backlogs || state.backlogs.length === 0) {
+          body.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400 font-semibold text-xs">Không có công việc tồn đọng.</td></tr>`;
+          return;
+        }
+
+        state.backlogs.forEach((item) => {
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-50 transition text-xs border-b border-slate-200";
+          tr.innerHTML = `
+            <td class="p-2 text-center">${item.date || "-"}</td>
+            <td class="p-2 font-bold">${item.group || "-"}</td>
+            <td class="p-2">${item.area || "-"}</td>
+            <td class="p-2 font-bold">${item.content || "-"}</td>
+            <td class="p-2 text-center">
+              <label class="bg-slate-100 p-1.5 rounded cursor-pointer text-slate-600 hover:bg-slate-200">
+                <i class="fa-solid fa-plus"></i>
+                <input type="file" accept="image/*" multiple class="hidden" onchange="handleBacklogPhotoUpload('${item.id}', this.files)">
+              </label>
+            </td>
+            <td class="p-2">${item.oldAssignees ? item.oldAssignees.join(", ") : "-"}</td>
+            <td class="p-2 text-center"><span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">${item.oldProgress || "Bàn giao"}</span></td>
+            <td class="p-2">${item.reAssignees ? item.reAssignees.join(", ") : "Chưa giao lại"}</td>
+            <td class="p-2">${item.note || ""}</td>
+            <td class="p-2 text-center"><button onclick="deleteBacklogRow('${item.id}')" class="text-rose-600"><i class="fa-solid fa-trash-can"></i></button></td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+
+      async function handleBacklogPhotoUpload(id, fileList) {
+        const item = state.backlogs.find((b) => String(b.id) === String(id));
+        if (!item || !fileList || fileList.length === 0) return;
+        if (!item.photos) item.photos = [];
+
+        for (const file of Array.from(fileList)) {
+          const compressed = await compressImage(file, 800, 800, 0.6);
+          if (compressed) item.photos.push(compressed);
+        }
+        await saveState();
+        renderBacklogsTable();
+        showCustomToast("Đã thêm ảnh tồn đọng!", "success");
+      }
+
+      function createNewBacklogRow() {
+        const newB = {
+          id: "backlog-" + Date.now(),
+          date: new Date().toISOString().slice(0, 10),
+          group: "Bảo Trì",
+          area: "",
+          content: "",
+          photos: [],
+          oldAssignees: [],
+          oldProgress: "Bàn giao",
+          reAssignees: [],
+          note: "",
+        };
+        state.backlogs.push(newB);
+        saveState();
+        renderBacklogsTable();
+      }
+
+      function deleteBacklogRow(id) {
+        state.backlogs = state.backlogs.filter((b) => b.id !== id);
+        saveState();
+        renderBacklogsTable();
+      }
+
+      function evaluateKPIStats() {
+        const stats = {};
+        state.members
+          .filter((m) => m.user !== "admin")
+          .forEach((m) => {
+            stats[m.fullname] = {
+              id: m.id,
+              fullname: m.fullname,
+              role: m.role,
+              title: m.title,
+              assigned: 0,
+              completed: 0,
+              scoreSum: 0,
+              attitudeGrades: m.attitudeGrades || {
+                supervisor: 5, attendance: 5, initiative: 5, feedback: 5, professionalism: 5
+              },
+            };
+          });
+
+        state.tasks.forEach((task) => {
+          if (task.assignees) {
+            task.assignees.forEach((name) => {
+              if (stats[name]) {
+                stats[name].assigned++;
+                let points = 0;
+                if (task.progress === "Hoàn thành") {
+                  points = 100;
+                  stats[name].completed++;
+                } else if (task.progress === "Đang thực hiện") points = 50;
+                else if (task.progress === "Làm lại") points = 20;
+                else if (task.progress === "Bàn giao") points = 0;
+
+                stats[name].scoreSum += points;
+              }
+            });
+          }
+        });
+
+        const list = [];
+        for (let name in stats) {
+          const item = stats[name];
+          // Khối lượng công việc (% KPI): 0 - 100
+          item.kpiPercent = item.assigned > 0 ? item.scoreSum / item.assigned : 100;
+          
+          // Điểm thái độ trung bình (1 - 5) -> Quy đổi ra thang điểm %
+          const att = item.attitudeGrades;
+          item.attitudeAverage =
+            (parseFloat(att.supervisor || 5) +
+              parseFloat(att.attendance || 5) +
+              parseFloat(att.initiative || 5) +
+              parseFloat(att.feedback || 5) +
+              parseFloat(att.professionalism || 5)) / 5;
+          item.attitudePercent = (item.attitudeAverage / 5) * 100;
+
+          // Công thức chuẩn xác: 70% Khối lượng + 30% Thái độ
+          item.finalScore = (item.kpiPercent * 0.70) + (item.attitudePercent * 0.30);
+          list.push(item);
+        }
+        return list;
+      }
+
+      function renderKpiDashboard() {
+        const list = evaluateKPIStats();
+        const dutyTable = document.getElementById("kpi-group-duty");
+        const techTable = document.getElementById("kpi-group-tech");
+        const carpTable = document.getElementById("kpi-group-carpenter");
+
+        if (dutyTable) dutyTable.innerHTML = "";
+        if (techTable) techTable.innerHTML = "";
+        if (carpTable) carpTable.innerHTML = "";
+
+        list.forEach((item) => {
+          let target = item.title === "Duty Engineer" ? dutyTable : item.title === "Carpenter" ? carpTable : techTable;
+          if (!target) return;
+
+          const tr = document.createElement("tr");
+          tr.className = "border-b hover:bg-slate-50 text-[11px]";
+          tr.innerHTML = `
+            <td class="p-2 font-bold text-slate-800">${item.fullname}</td>
+            <td class="p-2 text-center font-extrabold text-blue-600">${item.kpiPercent.toFixed(0)}%</td>
+            <td class="p-2 text-center font-extrabold text-amber-600">${item.attitudeAverage.toFixed(1)}/5</td>
+            <td class="p-2 text-center font-black text-emerald-600">${item.finalScore.toFixed(1)}đ</td>
+          `;
+          target.appendChild(tr);
+        });
+
+        // Top Achievers
+        const sorted = [...list].sort((a, b) => b.finalScore - a.finalScore);
+        const bestDuty = sorted.find((x) => x.title === "Duty Engineer");
+        const bestTech = sorted.find((x) => x.title === "Technician");
+        const bestCarp = sorted.find((x) => x.title === "Carpenter");
+
+        if (bestDuty) {
+          document.getElementById("out-duty-name").innerText = bestDuty.fullname;
+          document.getElementById("out-duty-score").innerText = `${bestDuty.finalScore.toFixed(1)} điểm (70/30)`;
+        }
+        if (bestTech) {
+          document.getElementById("out-tech-name").innerText = bestTech.fullname;
+          document.getElementById("out-tech-score").innerText = `${bestTech.finalScore.toFixed(1)} điểm (70/30)`;
+        }
+        if (bestCarp) {
+          document.getElementById("out-carp-name").innerText = bestCarp.fullname;
+          document.getElementById("out-carp-score").innerText = `${bestCarp.finalScore.toFixed(1)} điểm (70/30)`;
+        }
+      }
+
+      document.getElementById("login-form").onsubmit = function (e) {
+        e.preventDefault();
+        const u = document.getElementById("login-username-select").value;
+        const p = document.getElementById("login-password-input").value;
+        const found = state.members.find((m) => m.user === u && m.pass === p);
+        if (found) {
+          state.currentUser = found;
+          sessionStorage.setItem("kpi_app_current_user_id", found.id);
+          document.getElementById("login-container").classList.add("hidden");
+          document.getElementById("main-workspace").classList.remove("hidden");
+          document.getElementById("header-user-fullname").innerText = found.fullname;
+          document.getElementById("header-user-role").innerText = `${found.role} - ${found.title || ""}`;
+          switchTab("weekly-plan");
+          showCustomToast("Đăng nhập thành công!", "success");
+        } else {
+          showCustomToast("Sai tên tài khoản hoặc mật khẩu!", "error");
+        }
+      };
+
+      function logout() {
+        state.currentUser = null;
+        sessionStorage.removeItem("kpi_app_current_user_id");
+        document.getElementById("main-workspace").classList.add("hidden");
+        document.getElementById("login-container").classList.remove("hidden");
+      }
+
+      function toggleLoginPasswordVisibility() {
+        const inp = document.getElementById("login-password-input");
+        const icon = document.getElementById("login-pass-toggle-icon");
+        if (inp.type === "password") {
+          inp.type = "text";
+          icon.className = "fa-solid fa-eye-slash";
+        } else {
+          inp.type = "password";
+          icon.className = "fa-solid fa-eye";
+        }
+      }
+
+      function toggleMenu() {
+        const nav = document.getElementById("app-nav");
+        nav.classList.toggle("-translate-x-full");
+      }
+
+      function closeMenu() {
+        const nav = document.getElementById("app-nav");
+        nav.classList.add("-translate-x-full");
+      }
+
+      window.onload = function () {
+        initFirebase();
+      };
+    </script>
+  </body>
+</html>
